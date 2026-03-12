@@ -46,9 +46,10 @@ initSocketHandlers(io);
 
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ alter: true }).then(() => {
+sequelize.sync({ force: false }).then(() => {
   console.log('✅ Database synced');
   server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }).catch(err => console.error('❌ DB sync error:', err));
 
 module.exports = { app, io };
+
