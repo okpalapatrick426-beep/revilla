@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { getFriends } from '../services/api';
+import { getAllPlatformUsers } from '../services/api';
 import ChatWindow from '../components/User/Chat/ChatWindow';
 import StatusFeed from '../components/User/Status/StatusFeed';
 import ProfilePage from '../components/User/Profile/ProfilePage';
@@ -13,21 +13,26 @@ export default function MainApp() {
   const { socket } = useSocket();
   const [activeTab, setActiveTab] = useState('chats');
   const [activeContact, setActiveContact] = useState(null);
-  const [contacts, setContacts] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [search, setSearch] = useState('');
+  const [showChatMobile, setShowChatMobile] = useState(false);
 
-  const loadContacts = () => {
-    getFriends().then(res => setContacts(res.data || [])).catch(() => {});
-  };
+  const loadUsers = useCallback(() => {
+    getAllPlatformUsers().then(res => {
+      setAllUsers(res.data || []);
+      const onlineSet = new Set((res.data || []).filter(u => u.isOnline).map(u => u.id));
+      setOnlineUsers(onlineSet);
+    }).catch(() => {});
+  }, []);
 
-  useEffect(() => { loadContacts(); }, []);
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   // Auto-refresh every 2 seconds
   useEffect(() => {
-    const interval = setInterval(() => { loadContacts(); }, 2000);
+    const interval = setInterval(loadUsers, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadUsers]);
 
   useEffect(() => {
     if (!socket) return;
@@ -36,13 +41,14 @@ export default function MainApp() {
     return () => { socket.off('user_online'); socket.off('user_offline'); };
   }, [socket]);
 
-  // Universal: click any user anywhere → open chat instantly
+  // Universal open chat — works on mobile and desktop
   const openChat = (contact) => {
     setActiveContact({ ...contact, isOnline: onlineUsers.has(contact.id) || contact.isOnline });
     setActiveTab('chats');
+    setShowChatMobile(true); // on mobile, show chat panel
   };
 
-  const filtered = contacts.filter(c =>
+  const filtered = allUsers.filter(c =>
     (c.displayName || c.username || '').toLowerCase().includes(search.toLowerCase())
   );
 
@@ -63,12 +69,8 @@ export default function MainApp() {
       <div className="app-sidebar-nav">
         <div className="app-logo">R</div>
         {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-            title={tab.label}
-          >
+          <button key={tab.id} className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)} title={tab.label}>
             {tab.icon}
           </button>
         ))}
@@ -79,47 +81,50 @@ export default function MainApp() {
       <div className="app-content">
         {activeTab === 'chats' && (
           <div className="chats-layout">
-            <div className="contacts-sidebar">
+            {/* Contact list — hidden on mobile when chat is open */}
+            <div className={`contacts-sidebar ${showChatMobile && activeContact ? 'mobile-hidden' : ''}`}>
               <div className="contacts-header">
                 <h3>Messages</h3>
-                <button className="icon-btn" title="New chat">✎</button>
+                {showChatMobile && activeContact && (
+                  <button className="icon-btn" onClick={() => setShowChatMobile(false)}>←</button>
+                )}
               </div>
               <div className="contacts-search">
-                <input
-                  placeholder="Search conversations..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
+                <input placeholder="Search people..." value={search}
+                  onChange={e => setSearch(e.target.value)} />
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {filtered.length === 0 ? (
                   <div className="contact-list-placeholder">
                     <span style={{ fontSize: '2rem', opacity: .25 }}>💬</span>
-                    <p>No conversations yet</p>
+                    <p>No users yet</p>
                     <p style={{ fontSize: '.75rem' }}>Go to GoSpace to find people</p>
                   </div>
                 ) : filtered.map(contact => {
                   const isOnline = onlineUsers.has(contact.id) || contact.isOnline;
                   const initial = (contact.displayName || contact.username || '?')[0].toUpperCase();
                   return (
-                    <div
-                      key={contact.id}
+                    <div key={contact.id}
                       className={`contact-item ${activeContact?.id === contact.id ? 'active' : ''}`}
-                      onClick={() => openChat(contact)}
-                    >
-                      <div className={`contact-avatar ${isOnline ? 'contact-avatar-online' : ''}`}>
-                        {initial}
-                      </div>
+                      onClick={() => openChat(contact)}>
+                      <div className={`contact-avatar ${isOnline ? 'contact-avatar-online' : ''}`}>{initial}</div>
                       <div className="contact-meta">
                         <div className="contact-name">{contact.displayName || contact.username}</div>
-                        <div className="contact-preview">{isOnline ? 'Online' : 'Tap to chat'}</div>
+                        <div className="contact-preview">{isOnline ? '● Online' : '○ Offline'}</div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-            <ChatWindow contact={activeContact} />
+
+            {/* Chat window — shown on mobile only when contact selected */}
+            <div className={`chat-panel ${showChatMobile && activeContact ? 'mobile-visible' : ''}`}>
+              {showChatMobile && activeContact && (
+                <button className="mobile-back-btn" onClick={() => setShowChatMobile(false)}>← Back</button>
+              )}
+              <ChatWindow contact={activeContact} />
+            </div>
           </div>
         )}
         {activeTab === 'status' && <StatusFeed onUserClick={openChat} />}
@@ -137,11 +142,9 @@ export default function MainApp() {
       {/* Bottom nav — mobile only */}
       <div className="bottom-nav">
         {tabs.map(tab => (
-          <button
-            key={tab.id}
+          <button key={tab.id}
             className={`bottom-nav-btn ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
+            onClick={() => { setActiveTab(tab.id); setShowChatMobile(false); }}>
             <span className="bottom-nav-icon">{tab.icon}</span>
             <span className="bottom-nav-label">{tab.label}</span>
           </button>
