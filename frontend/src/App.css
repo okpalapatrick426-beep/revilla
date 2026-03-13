@@ -291,3 +291,75 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-primar
 .user-coords { font-size: .7rem; color: var(--text-muted); font-family: monospace; }
 .location-time { margin-left: .45rem; }
 .opt-in-badge { font-size: .7rem; color: var(--accent); }
+
+/* ── Bottom Nav (mobile) ── */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 60px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  flex-direction: row;
+  align-items: stretch;
+}
+.bottom-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: .6rem;
+  transition: color .2s;
+  padding: 0;
+}
+.bottom-nav-btn.active { color: var(--accent); }
+.bottom-nav-icon { font-size: 1.2rem; line-height: 1; }
+.bottom-nav-label { font-size: .58rem; font-weight: 500; }
+
+@media (max-width: 768px) {
+  .bottom-nav { display: flex; }
+  .app-sidebar-nav { display: none !important; }
+  .main-app { padding-bottom: 60px; }
+  .auth-page { padding: 1rem !important; }
+}
+
+/* ── GoSpace new cards ── */
+.gs-list { display: flex; flex-direction: column; gap: .5rem; padding: .5rem 1rem 5rem; overflow-y: auto; }
+.gs-section-label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; padding: .5rem 0 .25rem; }
+.gs-user-card {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .65rem .85rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.gs-user-card:hover { background: var(--bg-tertiary); }
+.gs-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 1rem; color: #fff;
+  position: relative; flex-shrink: 0;
+}
+.gs-dot {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+}
+.gs-dot-online { background: var(--accent); }
+.gs-dot-offline { background: #555; }
+.gs-info { flex: 1; min-width: 0; }
+.gs-name { font-size: .875rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gs-sub { font-size: .72rem; color: var(--text-muted); }
+.gs-actions { flex-shrink: 0; }
+.gs-msg-btn { background: var(--accent); border: none; color: #fff; border-radius: 8px; padding: .3rem .65rem; cursor: pointer; font-size: .8rem; }
+.gs-add-btn { background: transparent; border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; padding: .3rem .65rem; cursor: pointer; font-size: .8rem; }
+.gs-accept-btn { background: var(--accent); border: none; color: #fff; border-radius: 8px; padding: .3rem .65rem; cursor: pointer; font-size: .8rem; }
+.gs-pending { font-size: .72rem; color: var(--text-muted); }
