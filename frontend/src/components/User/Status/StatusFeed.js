@@ -10,8 +10,16 @@ export default function StatusFeed({ onUserClick }) {
   const [viewing, setViewing] = useState(null);
   const { user } = useAuth();
 
+  const loadStatuses = () => {
+    getStatuses().then(r => setStatuses(r.data || [])).catch(() => {});
+  };
+
+  useEffect(() => { loadStatuses(); }, []);
+
+  // Auto-refresh every 2 seconds
   useEffect(() => {
-    getStatuses().then(r => setStatuses(r.data));
+    const interval = setInterval(loadStatuses, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCreate = async () => {
@@ -27,12 +35,27 @@ export default function StatusFeed({ onUserClick }) {
 
   const handleView = async (status) => {
     setViewing(status);
-    if (status.userId !== user?.id) await viewStatus(status.id);
+    if (status.userId !== user?.id) {
+      try {
+        await viewStatus(status.id);
+        // Update local view count
+        setStatuses(prev => prev.map(s => {
+          if (s.id === status.id) {
+            const views = s.views || [];
+            if (!views.includes(user?.id)) {
+              return { ...s, views: [...views, user?.id] };
+            }
+          }
+          return s;
+        }));
+      } catch {}
+    }
   };
 
   const handleDelete = async (id) => {
     await deleteStatus(id);
     setStatuses(prev => prev.filter(s => s.id !== id));
+    setViewing(null);
     toast.success('Status deleted');
   };
 
@@ -50,9 +73,13 @@ export default function StatusFeed({ onUserClick }) {
             <div className="status-preview" style={{ background: s.backgroundColor }}>
               <span>{s.content?.slice(0, 20)}{s.content?.length > 20 ? '...' : ''}</span>
             </div>
-            <div className="status-user-name" onClick={() => onUserClick && s.User && onUserClick(s.User)} style={{cursor:"pointer"}}>{s.User?.displayName || s.User?.username}</div>
+            <div className="status-user-name"
+              onClick={e => { e.stopPropagation(); onUserClick && s.User && onUserClick(s.User); }}
+              style={{ cursor: 'pointer' }}>
+              {s.User?.displayName || s.User?.username}
+            </div>
             {s.userId === user?.id && (
-              <div className="status-views">👁 {s.views?.length || 0}</div>
+              <div className="status-views">👁 {(s.views || []).length}</div>
             )}
           </div>
         ))}
@@ -62,12 +89,8 @@ export default function StatusFeed({ onUserClick }) {
         <div className="status-create-modal">
           <div className="status-create-box">
             <h3>Create Status</h3>
-            <textarea
-              placeholder="What's on your mind?"
-              value={newStatus.content}
-              onChange={e => setNewStatus(p => ({ ...p, content: e.target.value }))}
-              rows={4}
-            />
+            <textarea placeholder="What's on your mind?" value={newStatus.content}
+              onChange={e => setNewStatus(p => ({ ...p, content: e.target.value }))} rows={4} />
             <div className="color-picker">
               {colors.map(c => (
                 <div key={c} className={`color-swatch ${newStatus.backgroundColor === c ? 'selected' : ''}`}
@@ -84,16 +107,31 @@ export default function StatusFeed({ onUserClick }) {
 
       {viewing && (
         <div className="status-viewer" onClick={() => setViewing(null)}>
-          <div className="status-full" style={{ background: viewing.backgroundColor }}>
+          <div className="status-full" style={{ background: viewing.backgroundColor }}
+            onClick={e => e.stopPropagation()}>
             <div className="status-full-header">
-              <div className="sv-avatar">{viewing.User?.displayName?.[0]}</div>
-              <div className="sv-name">{viewing.User?.displayName}</div>
-              <div className="sv-time">{new Date(viewing.createdAt).toLocaleTimeString()}</div>
+              <div className="sv-avatar" style={{ cursor: 'pointer' }}
+                onClick={() => { onUserClick && viewing.User && onUserClick(viewing.User); setViewing(null); }}>
+                {viewing.User?.displayName?.[0]}
+              </div>
+              <div>
+                <div className="sv-name" style={{ cursor: 'pointer' }}
+                  onClick={() => { onUserClick && viewing.User && onUserClick(viewing.User); setViewing(null); }}>
+                  {viewing.User?.displayName}
+                </div>
+                <div className="sv-time">{new Date(viewing.createdAt).toLocaleTimeString()}</div>
+              </div>
               {viewing.userId === user?.id && (
                 <button className="sv-delete" onClick={() => handleDelete(viewing.id)}>🗑</button>
               )}
+              <button className="sv-close" onClick={() => setViewing(null)}>✕</button>
             </div>
             <div className="status-full-content">{viewing.content}</div>
+            {viewing.userId === user?.id && (
+              <div className="sv-viewers">
+                <div className="sv-viewers-title">👁 {(viewing.views || []).length} view{(viewing.views || []).length !== 1 ? 's' : ''}</div>
+              </div>
+            )}
           </div>
         </div>
       )}
