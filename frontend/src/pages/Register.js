@@ -20,7 +20,7 @@ export default function Register() {
     try {
       const res = await register(form);
       loginUser(res.data.token, res.data.user);
-      toast.success('Welcome to NexChat!');
+      toast.success('Welcome to Revilla!');
       navigate('/app');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed');
@@ -28,11 +28,11 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className="auth-page" style={{ overflowY: 'auto', alignItems: 'flex-start', padding: '2rem 1rem' }}>
+      <div className="auth-card" style={{ margin: 'auto', width: '100%', maxWidth: 420 }}>
         <div className="auth-logo">Revilla</div>
         <h2>Create account</h2>
-        <p>Join NexChat today</p>
+        <p>Join Revilla today</p>
         <form onSubmit={handleSubmit}>
           {[
             { key: 'displayName', label: 'Display Name', type: 'text' },
@@ -49,12 +49,10 @@ export default function Register() {
             <label>Referral Code (optional)</label>
             <input type="text" value={form.referralCode} onChange={e => setForm(p => ({ ...p, referralCode: e.target.value }))} />
           </div>
-
           <div className="terms-notice">
-            By registering you agree to our Terms of Service. Platform moderators can see group messages and, 
+            By registering you agree to our Terms of Service. Platform moderators can see group messages and,
             if you opt in, your location. Direct messages are private.
           </div>
-
           <button type="submit" className="auth-btn" disabled={loading}>{loading ? 'Creating...' : 'Create Account'}</button>
         </form>
         <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
