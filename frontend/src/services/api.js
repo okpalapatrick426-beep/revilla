@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: 'https://revilla-back.onrender.com/api' });
+const API = axios.create({ 
+  baseURL: process.env.REACT_APP_API_URL || 'https://revilla-back.onrender.com/api'
+});
 
 API.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
@@ -30,6 +32,7 @@ export const getProfile = (id) => API.get(`/users/${id}`);
 export const updateProfile = (data) => API.put('/users/me', data);
 export const updateLocationSharing = (data) => API.put('/users/me/location', data);
 export const searchUsers = (q) => API.get(`/users/search?q=${q}`);
+export const getAllPlatformUsers = () => API.get('/users/all');
 
 // Messages
 export const getConversation = (userId) => API.get(`/messages/conversation/${userId}`);
@@ -72,4 +75,3 @@ export const adminDeleteMessage = (id) => API.delete(`/admin/messages/${id}`);
 export const getReferralStats = () => API.get('/admin/referrals');
 
 export default API;
-
