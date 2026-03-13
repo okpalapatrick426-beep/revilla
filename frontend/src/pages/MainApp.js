@@ -48,8 +48,8 @@ export default function MainApp() {
 
   const tabs = [
     { id: 'chats', icon: '💬', label: 'Chats' },
-    { id: 'status', icon: '⊙', label: 'Status' },
-    { id: 'gospace', icon: '🌐', label: 'GoSpace' },
+    { id: 'status', icon: '○', label: 'Status' },
+    { id: 'gospace', icon: '⊞', label: 'Space' },
     { id: 'referrals', icon: '◈', label: 'Refer' },
     { id: 'profile', icon: '◉', label: 'Profile' },
   ];
