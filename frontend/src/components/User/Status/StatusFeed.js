@@ -3,7 +3,7 @@ import { getStatuses, createStatus, viewStatus, deleteStatus } from '../../../se
 import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
 
-export default function StatusFeed() {
+export default function StatusFeed({ onUserClick }) {
   const [statuses, setStatuses] = useState([]);
   const [creating, setCreating] = useState(false);
   const [newStatus, setNewStatus] = useState({ content: '', type: 'text', backgroundColor: '#1a1a2e' });
@@ -50,7 +50,7 @@ export default function StatusFeed() {
             <div className="status-preview" style={{ background: s.backgroundColor }}>
               <span>{s.content?.slice(0, 20)}{s.content?.length > 20 ? '...' : ''}</span>
             </div>
-            <div className="status-user-name">{s.User?.displayName || s.User?.username}</div>
+            <div className="status-user-name" onClick={() => onUserClick && s.User && onUserClick(s.User)} style={{cursor:"pointer"}}>{s.User?.displayName || s.User?.username}</div>
             {s.userId === user?.id && (
               <div className="status-views">👁 {s.views?.length || 0}</div>
             )}
