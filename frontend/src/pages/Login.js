@@ -1,11 +1,10 @@
-// Login.js
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-export function Login() {
+export default function Login() {
   const [form, setForm] = useState({ emailOrUsername: '', password: '' });
   const [loading, setLoading] = useState(false);
   const { loginUser } = useAuth();
@@ -24,26 +23,43 @@ export function Login() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-logo">Revilla</div>
-        <h2>Welcome back</h2>
-        <p>Sign in to your account</p>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
+    <div className="auth-page-new">
+      <div className="auth-orb auth-orb-1" />
+      <div className="auth-orb auth-orb-2" />
+
+      <div className="auth-card-new">
+        <button className="auth-back-btn" onClick={() => navigate('/')}>← Back</button>
+
+        <div className="auth-logo-new">
+          <div className="auth-r-icon">R</div>
+          <span>Revilla</span>
+        </div>
+
+        <h2 className="auth-title">Welcome back</h2>
+        <p className="auth-sub">Sign in to continue</p>
+
+        <form onSubmit={handleSubmit} className="auth-form-new">
+          <div className="auth-field">
             <label>Email or Username</label>
-            <input type="text" value={form.emailOrUsername} onChange={e => setForm(p => ({ ...p, emailOrUsername: e.target.value }))} required />
+            <input type="text" placeholder="you@example.com"
+              value={form.emailOrUsername}
+              onChange={e => setForm(p => ({ ...p, emailOrUsername: e.target.value }))} required />
           </div>
-          <div className="form-group">
+          <div className="auth-field">
             <label>Password</label>
-            <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required />
+            <input type="password" placeholder="••••••••"
+              value={form.password}
+              onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required />
           </div>
-          <button type="submit" className="auth-btn" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>
+          <button type="submit" className="auth-submit-btn" disabled={loading}>
+            {loading ? <span className="auth-spinner" /> : 'Sign In'}
+          </button>
         </form>
-        <p className="auth-switch">Don't have an account? <Link to="/register">Register</Link></p>
+
+        <p className="auth-switch-new">
+          Don't have an account? <Link to="/register">Create one</Link>
+        </p>
       </div>
     </div>
   );
 }
-
-export default Login;
