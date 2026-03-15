@@ -1,0 +1,22 @@
+/* Status notifications */
+.status-notifications {
+  position: fixed; top: 16px; right: 16px;
+  z-index: 3000; display: flex; flex-direction: column; gap: 8px;
+}
+.status-notif {
+  display: flex; align-items: center; gap: 8px;
+  background: #7c3aed; color: #fff;
+  padding: 10px 16px; border-radius: 12px;
+  font-size: 0.85rem; font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Pause overlay */
+.status-pause-overlay {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5rem; opacity: 0.8;
+  pointer-events: none;
+}
