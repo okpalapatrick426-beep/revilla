@@ -1,8 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import './AppShell.css';
-import './ChatComponents.css';
-import './StatusGoSpace.css';
 
 import Splash from './pages/Splash';
 import Login from './pages/Login';
@@ -11,7 +8,7 @@ import MainApp from './pages/MainApp';
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" />;
+  return token ? children : <Navigate to="/login" replace />;
 };
 
 export default function App() {
@@ -26,7 +23,7 @@ export default function App() {
             <MainApp />
           </PrivateRoute>
         } />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
