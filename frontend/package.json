@@ -23,3 +23,8 @@
     "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
   }
 }
+```
+
+The key line that must be there is:
+```
+"@supabase/supabase-js": "^2.39.0",
