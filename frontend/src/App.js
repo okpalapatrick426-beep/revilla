@@ -5,6 +5,7 @@ import './AppShell.css';
 import './ChatComponents.css';
 import './StatusGoSpace.css';
 import './ReelsPage.css';
+import './StatusAdditions.css';
 
 import Splash from './pages/Splash';
 import Login from './pages/Login';
