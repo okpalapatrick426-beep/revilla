@@ -4,11 +4,13 @@ import './index.css';
 import './AppShell.css';
 import './ChatComponents.css';
 import './StatusGoSpace.css';
+import './ReelsPage.css';
 
 import Splash from './pages/Splash';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import MainApp from './pages/MainApp';
+import MagicCallback from './pages/MagicCallback';
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -22,11 +24,8 @@ export default function App() {
         <Route path="/" element={<Splash />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/app" element={
-          <PrivateRoute>
-            <MainApp />
-          </PrivateRoute>
-        } />
+        <Route path="/magic" element={<MagicCallback />} />
+        <Route path="/app" element={<PrivateRoute><MainApp /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
