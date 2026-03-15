@@ -7,6 +7,7 @@ import './StatusGoSpace.css';
 import './ReelsPage.css';
 import './StatusAdditions.css';
 import './StatusNotif.css';
+import './PauseIndicator.css';
 
 import Splash from './pages/Splash';
 import Login from './pages/Login';
