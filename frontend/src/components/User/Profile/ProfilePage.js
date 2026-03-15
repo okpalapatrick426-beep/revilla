@@ -1,115 +1,160 @@
-import { useState } from 'react';
-import { updateLocationSharing, updateProfile } from '../../../services/api';
-import { useAuth } from '../../../context/AuthContext';
-import toast from 'react-hot-toast';
+import React, { useState, useRef } from 'react';
+import api from '../../../services/api';
 
-export default function ProfilePage() {
-  const { user, setUser } = useAuth();
-  const [form, setForm] = useState({ displayName: user?.displayName || '', bio: user?.bio || '' });
-  const [locationEnabled, setLocationEnabled] = useState(user?.locationSharingEnabled || false);
+const CameraIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+    <path d="M12 15.2A3.2 3.2 0 1 0 12 8.8a3.2 3.2 0 0 0 0 6.4zm7-12H5l-2 2.4V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5.4L19 3.2zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+  </svg>
+);
+const EditIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+  </svg>
+);
+const GridIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+    <path d="M4 4h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 10h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 16h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4z"/>
+  </svg>
+);
+
+export default function ProfilePage({ currentUser, setCurrentUser }) {
+  const [editing, setEditing] = useState(false);
+  const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
+  const [bio, setBio] = useState(currentUser?.bio || '');
   const [saving, setSaving] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const fileInputRef = useRef(null);
+  const BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || '';
 
-  const handleProfileSave = async () => {
-    setSaving(true);
-    try {
-      const res = await updateProfile(form);
-      setUser(res.data);
-      toast.success('Profile updated');
-    } catch { toast.error('Update failed'); }
-    finally { setSaving(false); }
+  const avatarSrc = avatarPreview
+    ? avatarPreview
+    : currentUser?.avatar
+      ? (currentUser.avatar.startsWith('http') ? currentUser.avatar : `${BASE}${currentUser.avatar}`)
+      : null;
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setAvatarPreview(reader.result);
+    reader.readAsDataURL(file);
   };
 
-  const handleLocationToggle = async () => {
-    const enabling = !locationEnabled;
-    if (enabling) {
-      // Must ask for explicit consent
-      const confirmed = window.confirm(
-        '📍 Enable Location Sharing?\n\n' +
-        'By enabling this, your approximate location will be visible to platform moderators and admins. ' +
-        'This is disclosed in our Terms of Service.\n\n' +
-        'You can disable this at any time from settings.'
-      );
-      if (!confirmed) return;
-
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          try {
-            await updateLocationSharing({ enabled: true, lat: pos.coords.latitude, lng: pos.coords.longitude });
-            setLocationEnabled(true);
-            setUser(prev => ({ ...prev, locationSharingEnabled: true }));
-            toast.success('Location sharing enabled');
-          } catch { toast.error('Failed to enable location sharing'); }
-        },
-        () => toast.error('Location permission denied. Please allow location access in your browser.')
-      );
-    } else {
-      try {
-        await updateLocationSharing({ enabled: false });
-        setLocationEnabled(false);
-        setUser(prev => ({ ...prev, locationSharingEnabled: false }));
-        toast.success('Location sharing disabled and data cleared');
-      } catch { toast.error('Failed to disable location sharing'); }
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('displayName', displayName);
+      formData.append('bio', bio);
+      if (avatarFile) formData.append('avatar', avatarFile);
+      const res = await api.put('/users/profile', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (setCurrentUser) setCurrentUser(res.data);
+      setEditing(false);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+    } catch (err) {
+      alert('Failed to save profile');
+    } finally {
+      setSaving(false);
     }
   };
 
+  const friendsCount = currentUser?.followersCount || 0;
+  const followingCount = currentUser?.followingCount || 0;
+  const totalConnections = friendsCount + followingCount;
+
   return (
     <div className="profile-page">
-      <div className="profile-header">
-        <div className="profile-avatar-large">{user?.displayName?.[0]}</div>
-        <div>
-          <h2>{user?.displayName}</h2>
-          <p>@{user?.username}</p>
+      {/* Cover / header area */}
+      <div className="profile-cover" />
+
+      {/* Avatar */}
+      <div className="profile-avatar-wrap">
+        <div className="profile-avatar-ring">
+          {avatarSrc
+            ? <img src={avatarSrc} alt="avatar" className="profile-avatar-img" />
+            : <div className="profile-avatar-placeholder">{(currentUser?.displayName || currentUser?.username || 'U')[0].toUpperCase()}</div>
+          }
         </div>
+        {editing && (
+          <button className="avatar-camera-btn" onClick={() => fileInputRef.current?.click()}>
+            <CameraIcon />
+          </button>
+        )}
+        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
       </div>
 
-      <div className="profile-section">
-        <h3>Edit Profile</h3>
-        <div className="form-group">
-          <label>Display Name</label>
-          <input value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} />
-        </div>
-        <div className="form-group">
-          <label>Bio</label>
-          <textarea value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} rows={3} />
-        </div>
-        <button className="save-btn" onClick={handleProfileSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
-
-      <div className="profile-section">
-        <h3>Privacy Settings</h3>
-
-        {/* Location sharing — explicit opt-in with clear disclosure */}
-        <div className="privacy-row">
-          <div className="privacy-info">
-            <div className="privacy-title">📍 Location Sharing</div>
-            <div className="privacy-desc">
-              {locationEnabled
-                ? '✅ Your location is visible to platform moderators. Click to disable and clear your location data.'
-                : '🔒 Your location is private. Enable to share with moderators (disclosed in ToS).'}
+      {/* Name & bio */}
+      <div className="profile-info">
+        {editing ? (
+          <div className="profile-edit-form">
+            <input
+              className="profile-edit-input"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              placeholder="Display name"
+            />
+            <textarea
+              className="profile-edit-bio"
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+              placeholder="Bio — tell people about yourself"
+              rows={3}
+            />
+            <div className="profile-edit-actions">
+              <button className="btn-cancel" onClick={() => { setEditing(false); setAvatarPreview(null); setAvatarFile(null); }}>Cancel</button>
+              <button className="btn-save" onClick={saveProfile} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
             </div>
           </div>
-          <div
-            className={`toggle ${locationEnabled ? 'toggle-on' : ''}`}
-            onClick={handleLocationToggle}
-          />
-        </div>
+        ) : (
+          <>
+            <h2 className="profile-name">{currentUser?.displayName || currentUser?.username}</h2>
+            <p className="profile-username">@{currentUser?.username}</p>
+            {currentUser?.bio && <p className="profile-bio">{currentUser.bio}</p>}
+            <button className="btn-edit-profile" onClick={() => setEditing(true)}>
+              <EditIcon /> Edit Profile
+            </button>
+          </>
+        )}
+      </div>
 
-        <div className="privacy-notice">
-          <strong>ℹ️ About data collection:</strong> As disclosed in our Terms of Service, platform moderators
-          can see: reported messages in groups, your profile information, and your location if you opt in above.
-          Direct messages between users are private and not monitored unless reported.
+      {/* Stats — Instagram style */}
+      <div className="profile-stats">
+        <div className="stat-item">
+          <span className="stat-number">0</span>
+          <span className="stat-label">Posts</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{friendsCount}</span>
+          <span className="stat-label">Followers</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{followingCount}</span>
+          <span className="stat-label">Following</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{totalConnections}</span>
+          <span className="stat-label">Connections</span>
         </div>
       </div>
 
-      <div className="profile-section danger-zone">
-        <h3>Account</h3>
-        <div className="referral-code-display">
-          <span>Your referral code: </span>
-          <strong>{user?.referralCode}</strong>
-          <button onClick={() => { navigator.clipboard.writeText(user?.referralCode); toast.success('Copied!'); }}>Copy</button>
+      {/* Referral code */}
+      <div className="profile-referral">
+        <span className="ref-label">Your invite code</span>
+        <div className="ref-code-wrap">
+          <span className="ref-code">{currentUser?.referralCode || '------'}</span>
+          <button className="ref-copy-btn" onClick={() => navigator.clipboard.writeText(currentUser?.referralCode || '')}>Copy</button>
         </div>
+      </div>
+
+      {/* Posts grid placeholder */}
+      <div className="profile-posts-header">
+        <GridIcon /> <span>Posts</span>
+      </div>
+      <div className="profile-posts-grid">
+        <div className="no-posts">No posts yet</div>
       </div>
     </div>
   );
