@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { initSocket, disconnectSocket } from '../services/socket';
+import { initSocket, disconnectSocket, getSocket } from '../services/socket';
 
 import ChatWindow from '../components/User/Chat/ChatWindow';
 import StatusFeed from '../components/User/Status/StatusFeed';
@@ -26,6 +26,8 @@ const NAV = [
 export default function MainApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState('chats');
+  // Store conversations in a ref so they NEVER clear when tab changes
+  const conversationsRef = useRef([]);
   const [conversations, setConversations] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [showChat, setShowChat] = useState(false);
@@ -34,10 +36,12 @@ export default function MainApp() {
   const navigate = useNavigate();
   const refreshRef = useRef(null);
   const isMobile = window.innerWidth <= 768;
+  const BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || '';
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { navigate('/login'); return; }
+
     api.get('/auth/me')
       .then(res => {
         setCurrentUser(res.data);
@@ -47,32 +51,64 @@ export default function MainApp() {
       })
       .catch(() => { localStorage.removeItem('token'); navigate('/login'); });
 
+    // Refresh every 3 seconds
     refreshRef.current = setInterval(loadConversations, 3000);
-    return () => { clearInterval(refreshRef.current); disconnectSocket(); };
+    return () => {
+      clearInterval(refreshRef.current);
+      disconnectSocket();
+    };
   }, []);
 
-  const loadConversations = async () => {
+  // Listen for new messages to update conversation list in real time
+  useEffect(() => {
+    if (!currentUser) return;
+    const socket = getSocket();
+    if (!socket) return;
+    const onNewMsg = () => loadConversations();
+    socket.on('newMessage', onNewMsg);
+    return () => socket.off('newMessage', onNewMsg);
+  }, [currentUser]);
+
+  const loadConversations = useCallback(async () => {
     try {
       const res = await api.get('/messages/conversations');
-      if (res.data) setConversations(res.data);
+      if (res.data && res.data.length >= 0) {
+        conversationsRef.current = res.data;
+        setConversations(res.data);
+      }
     } catch {}
-  };
+  }, []);
 
-  // Open chat — works from anywhere, preserves conversation list
-  const openChat = (user) => {
+  const openChat = useCallback((user) => {
     if (!user) return;
     setActiveChat(user);
     setTab('chats');
     setShowChat(true);
-    // Refresh conversations to include this chat
-    setTimeout(loadConversations, 500);
-  };
+    // Add to conversations immediately if not already there
+    setConversations(prev => {
+      const exists = prev.find(c => c.id === user.id);
+      if (exists) return prev;
+      const newConv = { ...user, lastMessage: 'Tap to chat', lastMessageTime: new Date() };
+      conversationsRef.current = [newConv, ...prev];
+      return [newConv, ...prev];
+    });
+    setTimeout(loadConversations, 1000);
+  }, [loadConversations]);
 
-  const closeChat = () => {
+  const closeChat = useCallback(() => {
     setShowChat(false);
-    // Don't clear activeChat on desktop
-    if (isMobile) loadConversations();
-  };
+    loadConversations();
+  }, [loadConversations]);
+
+  // Switch tab — NEVER clears conversations
+  const switchTab = useCallback((key) => {
+    setTab(key);
+    if (key !== 'chats') setShowChat(false);
+    // Conversations stay — we use conversationsRef to restore
+    if (key === 'chats') {
+      setConversations(conversationsRef.current);
+    }
+  }, []);
 
   if (loading) return (
     <div className="app-loading">
@@ -81,33 +117,49 @@ export default function MainApp() {
     </div>
   );
 
-  const BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || '';
-  const avatarSrc = currentUser?.avatar ? (currentUser.avatar.startsWith('http') ? currentUser.avatar : `${BASE}${currentUser.avatar}`) : null;
-  const filtered = conversations.filter(c => (c.displayName || c.username || '').toLowerCase().includes(search.toLowerCase()));
+  const avatarSrc = currentUser?.avatar
+    ? (currentUser.avatar.startsWith('http') ? currentUser.avatar : `${BASE}${currentUser.avatar}`)
+    : null;
+
+  const filtered = conversations.filter(c =>
+    (c.displayName || c.username || '').toLowerCase().includes(search.toLowerCase())
+  );
+
   const inChat = isMobile && tab === 'chats' && showChat;
 
   const ChatList = (
     <div className="chat-list-panel">
       <div className="chat-list-header"><h2>Chats</h2></div>
       <div className="chat-search-wrap">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" opacity="0.4"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" opacity="0.4">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
         <input placeholder="Search chats..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
       <div className="conversation-list">
         {filtered.length === 0 ? (
-          <div className="no-chats"><p>No chats yet</p><small>Go to Space to find people</small></div>
+          <div className="no-chats">
+            <p>No chats yet</p>
+            <small>Go to Space to find people</small>
+          </div>
         ) : filtered.map(conv => {
           const src = conv.avatar ? (conv.avatar.startsWith('http') ? conv.avatar : `${BASE}${conv.avatar}`) : null;
           return (
             <div key={conv.id} className={`conversation-item ${activeChat?.id === conv.id ? 'active' : ''}`} onClick={() => openChat(conv)}>
               <div className="conv-avatar-wrap">
-                {src ? <img src={src} alt="" className="conv-avatar" /> : <div className="conv-avatar-placeholder">{(conv.displayName || conv.username || '?')[0].toUpperCase()}</div>}
+                {src
+                  ? <img src={src} alt="" className="conv-avatar" />
+                  : <div className="conv-avatar-placeholder">{(conv.displayName || conv.username || '?')[0].toUpperCase()}</div>}
                 {conv.isOnline && <span className="conv-online-dot" />}
               </div>
               <div className="conv-info">
                 <div className="conv-name-row">
                   <span className="conv-name">{conv.displayName || conv.username}</span>
-                  {conv.lastMessageTime && <span className="conv-time">{new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                  {conv.lastMessageTime && (
+                    <span className="conv-time">
+                      {new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                 </div>
                 <span className="conv-last-msg">{conv.lastMessage || 'Tap to chat'}</span>
               </div>
@@ -121,45 +173,79 @@ export default function MainApp() {
   const renderContent = () => {
     if (tab === 'chats') {
       if (isMobile) {
-        if (showChat) return <div className="main-content full"><ChatWindow conversation={activeChat} currentUser={currentUser} onBack={closeChat} /></div>;
+        if (showChat) return (
+          <div className="main-content full">
+            <ChatWindow conversation={activeChat} currentUser={currentUser} onBack={closeChat} />
+          </div>
+        );
         return <div className="main-content full">{ChatList}</div>;
       }
       return (
         <div className="main-content split">
           {ChatList}
-          <div className="chat-area"><ChatWindow conversation={activeChat} currentUser={currentUser} onBack={closeChat} /></div>
+          <div className="chat-area">
+            <ChatWindow conversation={activeChat} currentUser={currentUser} onBack={closeChat} />
+          </div>
         </div>
       );
     }
-    if (tab === 'status') return <div className="main-content full"><StatusFeed currentUser={currentUser} onOpenChat={openChat} /></div>;
-    if (tab === 'space') return <div className="main-content full"><GoSpace currentUser={currentUser} onOpenChat={openChat} /></div>;
-    if (tab === 'reels') return <div className="main-content full"><ReelsPage currentUser={currentUser} /></div>;
-    if (tab === 'profile') return <div className="main-content full"><ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} /></div>;
+    if (tab === 'status') return (
+      <div className="main-content full">
+        <StatusFeed currentUser={currentUser} onOpenChat={openChat} />
+      </div>
+    );
+    if (tab === 'space') return (
+      <div className="main-content full">
+        <GoSpace currentUser={currentUser} onOpenChat={openChat} />
+      </div>
+    );
+    if (tab === 'reels') return (
+      <div className="main-content full">
+        <ReelsPage currentUser={currentUser} />
+      </div>
+    );
+    if (tab === 'profile') return (
+      <div className="main-content full">
+        <ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />
+      </div>
+    );
   };
 
   return (
     <div className="app-shell">
+      {/* Desktop sidebar */}
       {!isMobile && (
         <div className="desktop-sidebar">
           <div className="sidebar-logo">R</div>
           {NAV.map(({ key, label, Icon }) => (
-            <button key={key} className={`sidebar-nav-btn ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)} title={label}>
-              <Icon active={tab === key} /><span>{label}</span>
+            <button key={key} className={`sidebar-nav-btn ${tab === key ? 'active' : ''}`}
+              onClick={() => switchTab(key)} title={label}>
+              <Icon active={tab === key} />
+              <span>{label}</span>
             </button>
           ))}
           <div style={{ flex: 1 }} />
-          <div className="sidebar-user" onClick={() => setTab('profile')} title="Profile">
-            {avatarSrc ? <img src={avatarSrc} alt="" className="sidebar-avatar" /> : <div className="sidebar-avatar-placeholder">{(currentUser?.displayName || 'U')[0].toUpperCase()}</div>}
+          <div className="sidebar-user" onClick={() => switchTab('profile')} title="Profile">
+            {avatarSrc
+              ? <img src={avatarSrc} alt="" className="sidebar-avatar" />
+              : <div className="sidebar-avatar-placeholder">{(currentUser?.displayName || 'U')[0].toUpperCase()}</div>}
           </div>
         </div>
       )}
-      <div className={`app-main ${inChat ? 'in-chat' : ''}`}>{renderContent()}</div>
+
+      {/* Main content */}
+      <div className={`app-main ${inChat ? 'in-chat' : ''}`}>
+        {renderContent()}
+      </div>
+
+      {/* Mobile bottom nav */}
       {isMobile && !inChat && (
         <nav className="mobile-bottom-nav">
           {NAV.map(({ key, label, Icon }) => (
             <button key={key} className={`mobile-nav-btn ${tab === key ? 'active' : ''}`}
-              onClick={() => { setTab(key); if (key !== 'chats') setShowChat(false); }}>
-              <Icon active={tab === key} /><span>{label}</span>
+              onClick={() => switchTab(key)}>
+              <Icon active={tab === key} />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
