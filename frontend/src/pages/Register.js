@@ -1,124 +1,278 @@
-import { useState } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { register } from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
-
-const steps = [
-  { id: 'name', label: 'What\'s your name?', fields: ['displayName', 'username'] },
-  { id: 'contact', label: 'Your contact info', fields: ['email', 'password'] },
-];
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
 export default function Register() {
-  const [params] = useSearchParams();
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState({
-    username: '', email: '', password: '', displayName: '',
-    referralCode: params.get('ref') || '',
-  });
-  const [loading, setLoading] = useState(false);
-  const { loginUser } = useAuth();
   const navigate = useNavigate();
+  const [form, setForm] = useState({
+    displayName: '',
+    username: '',
+    email: '',
+    password: '',
+    referralCode: '',
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleNext = (e) => {
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async e => {
     e.preventDefault();
-    if (step < steps.length - 1) setStep(s => s + 1);
-    else handleSubmit();
-  };
-
-  const handleSubmit = async () => {
+    setError('');
+    if (!form.username || !form.email || !form.password) {
+      setError('Username, email and password are required');
+      return;
+    }
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await register(form);
-      loginUser(res.data.token, res.data.user);
-      toast.success('Welcome to Revilla! 🎉');
-      navigate('/app');
+      const res = await api.post('/auth/register', form);
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      navigate('/app', { replace: true });
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Registration failed');
-    } finally { setLoading(false); }
+      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const current = steps[step];
-  const progress = ((step + 1) / steps.length) * 100;
-
   return (
-    <div className="auth-page-new">
-      <div className="auth-orb auth-orb-1" />
-      <div className="auth-orb auth-orb-2" />
+    <div style={styles.page}>
+      <div style={styles.glow} />
 
-      <div className="auth-card-new">
-        <button className="auth-back-btn" onClick={() => step > 0 ? setStep(s => s - 1) : navigate('/')}>← Back</button>
+      <button style={styles.backBtn} onClick={() => navigate('/')}>
+        ← Back
+      </button>
 
-        {/* Progress bar */}
-        <div className="auth-progress-bar">
-          <div className="auth-progress-fill" style={{ width: `${progress}%` }} />
-        </div>
-        <div className="auth-progress-label">Step {step + 1} of {steps.length}</div>
+      <div style={styles.card}>
+        <div style={styles.logoSmall}>R</div>
+        <h1 style={styles.title}>Join Revilla</h1>
+        <p style={styles.subtitle}>The way you love it</p>
 
-        <div className="auth-logo-new">
-          <div className="auth-r-icon">R</div>
-          <span>Revilla</span>
-        </div>
+        {error && <div style={styles.errorBox}>{error}</div>}
 
-        <h2 className="auth-title">{current.label}</h2>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.field}>
+            <label style={styles.label}>Display Name</label>
+            <input
+              style={styles.input}
+              name="displayName"
+              type="text"
+              placeholder="Your full name"
+              value={form.displayName}
+              onChange={handleChange}
+            />
+          </div>
 
-        <form onSubmit={handleNext} className="auth-form-new">
-          {current.fields.includes('displayName') && (
-            <div className="auth-field">
-              <label>Display Name</label>
-              <input type="text" placeholder="How people see you"
-                value={form.displayName}
-                onChange={e => setForm(p => ({ ...p, displayName: e.target.value }))} required />
-            </div>
-          )}
-          {current.fields.includes('username') && (
-            <div className="auth-field">
-              <label>Username</label>
-              <input type="text" placeholder="@yourname"
-                value={form.username}
-                onChange={e => setForm(p => ({ ...p, username: e.target.value }))} required />
-            </div>
-          )}
-          {current.fields.includes('email') && (
-            <div className="auth-field">
-              <label>Email</label>
-              <input type="email" placeholder="you@example.com"
-                value={form.email}
-                onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
-            </div>
-          )}
-          {current.fields.includes('password') && (
-            <div className="auth-field">
-              <label>Password</label>
-              <input type="password" placeholder="Min 6 characters"
-                value={form.password}
-                onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
-            </div>
-          )}
-          {step === steps.length - 1 && (
-            <div className="auth-field">
-              <label>Referral Code (optional)</label>
-              <input type="text" placeholder="Enter code if you have one"
-                value={form.referralCode}
-                onChange={e => setForm(p => ({ ...p, referralCode: e.target.value }))} />
-            </div>
-          )}
+          <div style={styles.field}>
+            <label style={styles.label}>Username <span style={styles.required}>*</span></label>
+            <input
+              style={styles.input}
+              name="username"
+              type="text"
+              placeholder="yourname"
+              value={form.username}
+              onChange={handleChange}
+              autoCapitalize="none"
+            />
+          </div>
 
-          <button type="submit" className="auth-submit-btn" disabled={loading}>
-            {loading ? <span className="auth-spinner" /> : step < steps.length - 1 ? 'Continue →' : 'Create Account 🎉'}
+          <div style={styles.field}>
+            <label style={styles.label}>Email <span style={styles.required}>*</span></label>
+            <input
+              style={styles.input}
+              name="email"
+              type="email"
+              placeholder="your@email.com"
+              value={form.email}
+              onChange={handleChange}
+              autoComplete="email"
+            />
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>Password <span style={styles.required}>*</span></label>
+            <input
+              style={styles.input}
+              name="password"
+              type="password"
+              placeholder="Min 6 characters"
+              value={form.password}
+              onChange={handleChange}
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>Referral Code <span style={styles.optional}>(optional)</span></label>
+            <input
+              style={styles.input}
+              name="referralCode"
+              type="text"
+              placeholder="Enter invite code"
+              value={form.referralCode}
+              onChange={handleChange}
+              autoCapitalize="characters"
+            />
+          </div>
+
+          <button
+            type="submit"
+            style={{ ...styles.submitBtn, opacity: loading ? 0.7 : 1 }}
+            disabled={loading}
+          >
+            {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
 
-        {step === 0 && (
-          <p className="auth-switch-new">
-            Already have an account? <Link to="/login">Sign in</Link>
-          </p>
-        )}
+        <p style={styles.switchText}>
+          Already have an account?{' '}
+          <span style={styles.link} onClick={() => navigate('/login')}>
+            Sign in
+          </span>
+        </p>
 
-        <p className="auth-terms">
-          By joining you agree to our Terms of Service. Direct messages are private.
+        <p style={styles.terms}>
+          By joining, you agree to our Terms of Service and Privacy Policy
         </p>
       </div>
     </div>
   );
 }
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    minHeight: '100dvh',
+    width: '100vw',
+    background: '#0a0a0f',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    padding: '60px 20px 40px',
+    position: 'relative',
+    overflowY: 'auto',
+  },
+  glow: {
+    position: 'fixed',
+    top: 0, left: '50%',
+    transform: 'translateX(-50%)',
+    width: '500px', height: '300px',
+    background: 'radial-gradient(ellipse, rgba(124,58,237,0.1) 0%, transparent 70%)',
+    pointerEvents: 'none',
+  },
+  backBtn: {
+    position: 'fixed',
+    top: '20px', left: '20px',
+    background: 'none',
+    border: 'none',
+    color: '#8b949e',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    zIndex: 10,
+  },
+  card: {
+    width: '100%',
+    maxWidth: '400px',
+    background: 'rgba(22,27,34,0.8)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '20px',
+    padding: '36px 28px',
+    backdropFilter: 'blur(20px)',
+    position: 'relative',
+    zIndex: 1,
+  },
+  logoSmall: {
+    width: '44px', height: '44px',
+    background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+    borderRadius: '12px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontWeight: '800', fontSize: '1.2rem', color: '#fff',
+    marginBottom: '20px',
+  },
+  title: {
+    fontSize: '1.6rem',
+    fontWeight: '700',
+    color: '#e6edf3',
+    margin: '0 0 6px',
+  },
+  subtitle: {
+    fontSize: '0.9rem',
+    color: '#484f58',
+    margin: '0 0 28px',
+  },
+  errorBox: {
+    background: 'rgba(239,68,68,0.1)',
+    border: '1px solid rgba(239,68,68,0.3)',
+    borderRadius: '10px',
+    padding: '12px 16px',
+    color: '#f87171',
+    fontSize: '0.875rem',
+    marginBottom: '20px',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  label: {
+    fontSize: '0.82rem',
+    fontWeight: '500',
+    color: '#8b949e',
+  },
+  required: { color: '#7c3aed' },
+  optional: { color: '#484f58', fontWeight: '400' },
+  input: {
+    background: 'rgba(13,17,23,0.8)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px',
+    padding: '13px 16px',
+    color: '#e6edf3',
+    fontSize: '0.95rem',
+    outline: 'none',
+    width: '100%',
+    fontFamily: 'inherit',
+  },
+  submitBtn: {
+    width: '100%',
+    padding: '14px',
+    background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    fontWeight: '700',
+    cursor: 'pointer',
+    marginTop: '4px',
+    boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
+  },
+  switchText: {
+    textAlign: 'center',
+    fontSize: '0.875rem',
+    color: '#484f58',
+    marginTop: '20px',
+  },
+  link: {
+    color: '#a78bfa',
+    cursor: 'pointer',
+    fontWeight: '600',
+  },
+  terms: {
+    textAlign: 'center',
+    fontSize: '0.72rem',
+    color: '#2a2a3a',
+    marginTop: '16px',
+    lineHeight: '1.5',
+  },
+};
