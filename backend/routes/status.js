@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth');
+const auth = typeof authMiddleware === 'function' ? authMiddleware : authMiddleware.auth || authMiddleware.default;
 const { Status, User } = require('../models');
 const { Op } = require('sequelize');
 const multer = require('multer');
