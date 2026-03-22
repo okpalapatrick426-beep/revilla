@@ -5,8 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const steps = [
-  { id: 'name', label: 'What\'s your name?', fields: ['displayName', 'username'] },
-  { id: 'contact', label: 'Your contact info', fields: ['email', 'password'] },
+  { id: 'name',    label: "What's your name?",   fields: ['displayName', 'username'] },
+  { id: 'contact', label: 'Your contact info',    fields: ['email', 'password'] },
+  { id: 'community', label: 'Your community',     fields: ['university', 'department'] },
 ];
 
 export default function Register() {
@@ -14,6 +15,7 @@ export default function Register() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     username: '', email: '', password: '', displayName: '',
+    university: '', department: '',
     referralCode: params.get('ref') || '',
   });
   const [loading, setLoading] = useState(false);
@@ -38,87 +40,290 @@ export default function Register() {
     } finally { setLoading(false); }
   };
 
+  const set = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.value }));
   const current = steps[step];
   const progress = ((step + 1) / steps.length) * 100;
 
   return (
-    <div className="auth-page-new">
-      <div className="auth-orb auth-orb-1" />
-      <div className="auth-orb auth-orb-2" />
+    <div style={styles.page}>
+      <div style={{ ...styles.orb, ...styles.orb1 }} />
+      <div style={{ ...styles.orb, ...styles.orb2 }} />
 
-      <div className="auth-card-new">
-        <button className="auth-back-btn" onClick={() => step > 0 ? setStep(s => s - 1) : navigate('/')}>← Back</button>
+      <div style={styles.card}>
+        {/* Back */}
+        <button style={styles.backBtn}
+          onClick={() => step > 0 ? setStep(s => s - 1) : navigate('/')}>
+          ← Back
+        </button>
 
-        {/* Progress bar */}
-        <div className="auth-progress-bar">
-          <div className="auth-progress-fill" style={{ width: `${progress}%` }} />
+        {/* Progress */}
+        <div style={styles.progressBar}>
+          <div style={{ ...styles.progressFill, width: `${progress}%` }} />
         </div>
-        <div className="auth-progress-label">Step {step + 1} of {steps.length}</div>
+        <div style={styles.progressLabel}>Step {step + 1} of {steps.length}</div>
 
-        <div className="auth-logo-new">
-          <div className="auth-r-icon">R</div>
-          <span>Revilla</span>
+        {/* Logo */}
+        <div style={styles.logoRow}>
+          <div style={styles.rIcon}>R</div>
+          <span style={styles.brandName}>Revilla</span>
         </div>
 
-        <h2 className="auth-title">{current.label}</h2>
+        <h2 style={styles.title}>{current.label}</h2>
 
-        <form onSubmit={handleNext} className="auth-form-new">
+        <form onSubmit={handleNext} style={styles.form}>
+
           {current.fields.includes('displayName') && (
-            <div className="auth-field">
-              <label>Display Name</label>
-              <input type="text" placeholder="How people see you"
-                value={form.displayName}
-                onChange={e => setForm(p => ({ ...p, displayName: e.target.value }))} required />
-            </div>
+            <Field label="Display Name" type="text" placeholder="How people see you"
+              value={form.displayName} onChange={set('displayName')} required />
           )}
           {current.fields.includes('username') && (
-            <div className="auth-field">
-              <label>Username</label>
-              <input type="text" placeholder="@yourname"
-                value={form.username}
-                onChange={e => setForm(p => ({ ...p, username: e.target.value }))} required />
-            </div>
+            <Field label="Username" type="text" placeholder="@yourname"
+              value={form.username} onChange={set('username')} required />
           )}
           {current.fields.includes('email') && (
-            <div className="auth-field">
-              <label>Email</label>
-              <input type="email" placeholder="you@example.com"
-                value={form.email}
-                onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
-            </div>
+            <Field label="Email" type="email" placeholder="you@example.com"
+              value={form.email} onChange={set('email')} required />
           )}
           {current.fields.includes('password') && (
-            <div className="auth-field">
-              <label>Password</label>
-              <input type="password" placeholder="Min 6 characters"
-                value={form.password}
-                onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
-            </div>
+            <Field label="Password" type="password" placeholder="Min 6 characters"
+              value={form.password} onChange={set('password')} required minLength={6} />
           )}
-          {step === steps.length - 1 && (
-            <div className="auth-field">
-              <label>Referral Code (optional)</label>
-              <input type="text" placeholder="Enter code if you have one"
-                value={form.referralCode}
-                onChange={e => setForm(p => ({ ...p, referralCode: e.target.value }))} />
-            </div>
+          {current.fields.includes('university') && (
+            <Field label="University / School" type="text" placeholder="e.g. UNILAG, LASU, UI..."
+              value={form.university} onChange={set('university')} optional />
+          )}
+          {current.fields.includes('department') && (
+            <Field label="Department / Faculty" type="text" placeholder="e.g. Computer Science..."
+              value={form.department} onChange={set('department')} optional />
           )}
 
-          <button type="submit" className="auth-submit-btn" disabled={loading}>
-            {loading ? <span className="auth-spinner" /> : step < steps.length - 1 ? 'Continue →' : 'Create Account 🎉'}
+          {/* Referral on last step */}
+          {step === steps.length - 1 && (
+            <Field label="Referral Code" type="text" placeholder="Enter code if you have one"
+              value={form.referralCode} onChange={set('referralCode')} optional />
+          )}
+
+          {step === steps.length - 1 && (
+            <p style={styles.locationNote}>
+              📍 We'll auto-detect your city when you enter the app
+            </p>
+          )}
+
+          <button type="submit" style={{ ...styles.submitBtn, opacity: loading ? 0.7 : 1 }} disabled={loading}>
+            {loading
+              ? <span style={styles.spinner} />
+              : step < steps.length - 1 ? 'Continue →' : 'Enter Revilla →'}
           </button>
         </form>
 
         {step === 0 && (
-          <p className="auth-switch-new">
-            Already have an account? <Link to="/login">Sign in</Link>
+          <p style={styles.switchText}>
+            Already have an account?{' '}
+            <Link to="/login" style={styles.link}>Sign in</Link>
           </p>
         )}
 
-        <p className="auth-terms">
+        <p style={styles.terms}>
           By joining you agree to our Terms of Service. Direct messages are private.
         </p>
       </div>
     </div>
   );
 }
+
+function Field({ label, optional, ...props }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={fieldStyles.wrap}>
+      <label style={fieldStyles.label}>
+        {label}
+        {optional && <span style={fieldStyles.optional}> (optional)</span>}
+      </label>
+      <input
+        {...props}
+        style={{
+          ...fieldStyles.input,
+          borderColor: focused ? 'rgba(191,95,255,0.6)' : 'rgba(255,255,255,0.08)',
+          boxShadow: focused ? '0 0 0 3px rgba(191,95,255,0.12)' : 'none',
+        }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        required={props.required}
+      />
+    </div>
+  );
+}
+
+const fieldStyles = {
+  wrap: { display: 'flex', flexDirection: 'column', gap: 6 },
+  label: { fontSize: 13, color: '#888', fontWeight: 500 },
+  optional: { color: '#555', fontWeight: 400 },
+  input: {
+    background: '#1A1A24',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    padding: '13px 14px',
+    fontSize: 15,
+    color: '#fff',
+    outline: 'none',
+    fontFamily: 'inherit',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+    width: '100%',
+  },
+};
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    background: '#0A0A0F',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    padding: '20px 16px',
+  },
+  orb: {
+    position: 'absolute',
+    borderRadius: '50%',
+    filter: 'blur(80px)',
+    pointerEvents: 'none',
+  },
+  orb1: {
+    width: 300, height: 300,
+    background: 'rgba(191,95,255,0.14)',
+    top: '-80px', right: '-60px',
+  },
+  orb2: {
+    width: 220, height: 220,
+    background: 'rgba(191,95,255,0.08)',
+    bottom: '-40px', left: '-30px',
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    background: '#13131A',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 24,
+    padding: '24px 24px 20px',
+    position: 'relative',
+    zIndex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 0,
+  },
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#BF5FFF',
+    fontSize: 13,
+    cursor: 'pointer',
+    padding: 0,
+    marginBottom: 14,
+    fontFamily: 'inherit',
+    textAlign: 'left',
+  },
+  progressBar: {
+    height: 3,
+    background: 'rgba(255,255,255,0.07)',
+    borderRadius: 99,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressFill: {
+    height: '100%',
+    background: '#BF5FFF',
+    borderRadius: 99,
+    transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+  },
+  progressLabel: {
+    fontSize: 11,
+    color: '#555',
+    marginBottom: 20,
+  },
+  logoRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  rIcon: {
+    width: 36,
+    height: 36,
+    background: '#BF5FFF',
+    borderRadius: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 18,
+    fontWeight: 700,
+    color: '#fff',
+  },
+  brandName: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: '#fff',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: '#fff',
+    marginBottom: 20,
+    letterSpacing: '-0.3px',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 14,
+  },
+  locationNote: {
+    fontSize: 11,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: -4,
+  },
+  submitBtn: {
+    width: '100%',
+    padding: '15px 0',
+    background: '#BF5FFF',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 13,
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    marginTop: 4,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'opacity 0.15s',
+  },
+  spinner: {
+    width: 18,
+    height: 18,
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#fff',
+    borderRadius: '50%',
+    animation: 'spin 0.7s linear infinite',
+    display: 'inline-block',
+  },
+  switchText: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  link: {
+    color: '#BF5FFF',
+    textDecoration: 'none',
+    fontWeight: 500,
+  },
+  terms: {
+    fontSize: 11,
+    color: '#444',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 1.5,
+  },
+};
