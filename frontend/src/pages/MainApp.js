@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { initSocket, disconnectSocket, getSocket } from '../services/socket';
-import './AppShell.css';
+import '../AppShell.css';
 
 import ChatWindow from '../components/User/Chat/ChatWindow';
 import StatusFeed from '../components/User/Status/StatusFeed';
