@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { initSocket, disconnectSocket, getSocket } from '../services/socket';
+import './AppShell.css';
 
 import ChatWindow from '../components/User/Chat/ChatWindow';
 import StatusFeed from '../components/User/Status/StatusFeed';
@@ -9,30 +10,68 @@ import GoSpace from '../components/User/Friends/GoSpace';
 import ProfilePage from '../components/User/Profile/ProfilePage';
 import ReelsPage from '../components/User/Reels/ReelsPage';
 
-const ChatsIcon = ({ active }) => <svg viewBox="0 0 24 24" fill={active?'currentColor':'none'} stroke="currentColor" strokeWidth="2" width="22" height="22"><path strokeLinecap="round" strokeLinejoin="round" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>;
-const StatusIcon = ({ active }) => <svg viewBox="0 0 24 24" fill={active?'currentColor':'none'} stroke="currentColor" strokeWidth="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>;
-const SpaceIcon = ({ active }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22"><path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4" fill={active?'currentColor':'none'}/><path strokeLinecap="round" strokeLinejoin="round" d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-const ReelsIcon = ({ active }) => <svg viewBox="0 0 24 24" fill={active?'currentColor':'none'} stroke="currentColor" strokeWidth="2" width="22" height="22"><rect x="2" y="2" width="20" height="20" rx="2"/><path strokeLinecap="round" d="M10 8l6 4-6 4V8z" fill={active?'#fff':'none'}/></svg>;
-const ProfileIcon = ({ active }) => <svg viewBox="0 0 24 24" fill={active?'currentColor':'none'} stroke="currentColor" strokeWidth="2" width="22" height="22"><path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+// ── INLINE SVG ICONS ────────────────────────────────────────────────────────
+const Icon = ({ d, size = 22, stroke = 'currentColor', fill = 'none', sw = 1.8, viewBox = '0 0 24 24', children }) => (
+  <svg width={size} height={size} viewBox={viewBox} fill={fill} stroke={stroke} strokeWidth={sw}
+    strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', flexShrink: 0 }}>
+    {d && <path d={d} />}
+    {children}
+  </svg>
+);
 
+const ChatsIcon    = ({ active }) => <Icon sw={active ? 2.2 : 1.7} d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill={active ? 'currentColor' : 'none'} />;
+const FeedIcon     = ({ active }) => (
+  <Icon sw={active ? 2.2 : 1.7}>
+    <rect x="3" y="3" width="7" height="7" rx="1" fill={active ? 'currentColor' : 'none'} />
+    <rect x="14" y="3" width="7" height="7" rx="1" fill={active ? 'currentColor' : 'none'} />
+    <rect x="3" y="14" width="7" height="7" rx="1" fill={active ? 'currentColor' : 'none'} />
+    <rect x="14" y="14" width="7" height="7" rx="1" fill={active ? 'currentColor' : 'none'} />
+  </Icon>
+);
+const PlusIcon     = ({ size = 22 }) => <Icon size={size} sw={2.2} d="M12 5v14M5 12h14" />;
+const ReelsIcon    = ({ active }) => (
+  <Icon sw={active ? 2.2 : 1.7}>
+    <rect x="2" y="2" width="20" height="20" rx="3" fill={active ? 'currentColor' : 'none'} />
+    <path d="M10 8l6 4-6 4V8z" fill={active ? '#fff' : 'currentColor'} stroke="none" />
+  </Icon>
+);
+const ProfileIcon  = ({ active }) => (
+  <Icon sw={active ? 2.2 : 1.7}>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill={active ? 'currentColor' : 'none'} />
+    <circle cx="12" cy="7" r="4" fill={active ? 'currentColor' : 'none'} />
+  </Icon>
+);
+const MessagesIcon = () => <Icon sw={1.7} d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />;
+const GlobeIcon    = () => <Icon sw={1.7}><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Icon>;
+const UserPlusIcon = () => <Icon sw={1.7}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></Icon>;
+const SearchIcon   = () => <Icon size={15} sw={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></Icon>;
+
+// ── NAV CONFIG ──────────────────────────────────────────────────────────────
 const NAV = [
-  { key: 'chats', label: 'Chats', Icon: ChatsIcon },
-  { key: 'status', label: 'Status', Icon: StatusIcon },
-  { key: 'space', label: 'Space', Icon: SpaceIcon },
-  { key: 'reels', label: 'Reels', Icon: ReelsIcon },
-  { key: 'profile', label: 'Profile', Icon: ProfileIcon },
+  { key: 'chats',   label: 'Chats',   Icon: ChatsIcon   },
+  { key: 'feed',    label: 'Feed',    Icon: FeedIcon     },
+  { key: 'create',  label: '',        Icon: PlusIcon     },
+  { key: 'reels',   label: 'Reels',   Icon: ReelsIcon    },
+  { key: 'profile', label: 'Profile', Icon: ProfileIcon  },
+];
+
+const CHAT_TABS = [
+  { key: 'messages',  label: 'Messages', Icon: MessagesIcon },
+  { key: 'space',     label: 'Space',    Icon: GlobeIcon    },
+  { key: 'requests',  label: 'Requests', Icon: UserPlusIcon },
 ];
 
 export default function MainApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState('chats');
-  // Store conversations in a ref so they NEVER clear when tab changes
+  const [chatTab, setChatTab] = useState('messages');
   const conversationsRef = useRef([]);
   const [conversations, setConversations] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [showChat, setShowChat] = useState(false);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
   const navigate = useNavigate();
   const refreshRef = useRef(null);
   const isMobile = window.innerWidth <= 768;
@@ -41,7 +80,6 @@ export default function MainApp() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { navigate('/login'); return; }
-
     api.get('/auth/me')
       .then(res => {
         setCurrentUser(res.data);
@@ -50,16 +88,10 @@ export default function MainApp() {
         loadConversations();
       })
       .catch(() => { localStorage.removeItem('token'); navigate('/login'); });
-
-    // Refresh every 3 seconds
     refreshRef.current = setInterval(loadConversations, 3000);
-    return () => {
-      clearInterval(refreshRef.current);
-      disconnectSocket();
-    };
+    return () => { clearInterval(refreshRef.current); disconnectSocket(); };
   }, []);
 
-  // Listen for new messages to update conversation list in real time
   useEffect(() => {
     if (!currentUser) return;
     const socket = getSocket();
@@ -83,8 +115,8 @@ export default function MainApp() {
     if (!user) return;
     setActiveChat(user);
     setTab('chats');
+    setChatTab('messages');
     setShowChat(true);
-    // Add to conversations immediately if not already there
     setConversations(prev => {
       const exists = prev.find(c => c.id === user.id);
       if (exists) return prev;
@@ -100,20 +132,17 @@ export default function MainApp() {
     loadConversations();
   }, [loadConversations]);
 
-  // Switch tab — NEVER clears conversations
   const switchTab = useCallback((key) => {
+    if (key === 'create') { setShowCreate(true); return; }
     setTab(key);
     if (key !== 'chats') setShowChat(false);
-    // Conversations stay — we use conversationsRef to restore
-    if (key === 'chats') {
-      setConversations(conversationsRef.current);
-    }
+    if (key === 'chats') setConversations(conversationsRef.current);
   }, []);
 
   if (loading) return (
     <div className="app-loading">
       <div className="app-loading-spinner" />
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Loading Revilla...</p>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading Revilla...</p>
     </div>
   );
 
@@ -127,49 +156,94 @@ export default function MainApp() {
 
   const inChat = isMobile && tab === 'chats' && showChat;
 
-  const ChatList = (
+  // ── CHAT LIST PANEL ─────────────────────────────────────────────────────
+  const ChatListPanel = (
     <div className="chat-list-panel">
-      <div className="chat-list-header"><h2>Chats</h2></div>
-      <div className="chat-search-wrap">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" opacity="0.4">
-          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-        </svg>
-        <input placeholder="Search chats..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="chat-list-header">
+        <h2>Chats</h2>
+        <button className="chat-new-btn">
+          <PlusIcon size={14} /> New
+        </button>
       </div>
-      <div className="conversation-list">
-        {filtered.length === 0 ? (
-          <div className="no-chats">
-            <p>No chats yet</p>
-            <small>Go to Space to find people</small>
+
+      {/* Inner tabs */}
+      <div className="chat-inner-tabs">
+        {CHAT_TABS.map(({ key, label }) => (
+          <button key={key}
+            className={`chat-inner-tab ${chatTab === key ? 'active' : ''}`}
+            onClick={() => setChatTab(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Messages tab */}
+      {chatTab === 'messages' && (
+        <>
+          <div className="chat-search-wrap">
+            <SearchIcon />
+            <input placeholder="Search conversations..."
+              value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-        ) : filtered.map(conv => {
-          const src = conv.avatar ? (conv.avatar.startsWith('http') ? conv.avatar : `${BASE}${conv.avatar}`) : null;
-          return (
-            <div key={conv.id} className={`conversation-item ${activeChat?.id === conv.id ? 'active' : ''}`} onClick={() => openChat(conv)}>
-              <div className="conv-avatar-wrap">
-                {src
-                  ? <img src={src} alt="" className="conv-avatar" />
-                  : <div className="conv-avatar-placeholder">{(conv.displayName || conv.username || '?')[0].toUpperCase()}</div>}
-                {conv.isOnline && <span className="conv-online-dot" />}
+          <div className="conversation-list">
+            {filtered.length === 0 ? (
+              <div className="no-chats">
+                <p>No chats yet</p>
+                <small>Go to Space to find people</small>
               </div>
-              <div className="conv-info">
-                <div className="conv-name-row">
-                  <span className="conv-name">{conv.displayName || conv.username}</span>
-                  {conv.lastMessageTime && (
-                    <span className="conv-time">
-                      {new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
+            ) : filtered.map(conv => {
+              const src = conv.avatar
+                ? (conv.avatar.startsWith('http') ? conv.avatar : `${BASE}${conv.avatar}`)
+                : null;
+              return (
+                <div key={conv.id}
+                  className={`conversation-item ${activeChat?.id === conv.id ? 'active' : ''}`}
+                  onClick={() => openChat(conv)}>
+                  <div className="conv-avatar-wrap">
+                    {src
+                      ? <img src={src} alt="" className="conv-avatar" />
+                      : <div className="conv-avatar-placeholder">
+                          {(conv.displayName || conv.username || '?')[0].toUpperCase()}
+                        </div>}
+                    {conv.isOnline && <span className="conv-online-dot" />}
+                  </div>
+                  <div className="conv-info">
+                    <div className="conv-name-row">
+                      <span className="conv-name">{conv.displayName || conv.username}</span>
+                      {conv.lastMessageTime && (
+                        <span className="conv-time">
+                          {new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    <span className="conv-last-msg">{conv.lastMessage || 'Tap to chat'}</span>
+                  </div>
                 </div>
-                <span className="conv-last-msg">{conv.lastMessage || 'Tap to chat'}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Space tab */}
+      {chatTab === 'space' && (
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <GoSpace currentUser={currentUser} onOpenChat={openChat} />
+        </div>
+      )}
+
+      {/* Requests tab */}
+      {chatTab === 'requests' && (
+        <div className="no-chats" style={{ paddingTop: 60 }}>
+          <UserPlusIcon />
+          <p style={{ marginTop: 12 }}>No requests yet</p>
+          <small>Friend requests will appear here</small>
+        </div>
+      )}
     </div>
   );
 
+  // ── CONTENT ROUTER ───────────────────────────────────────────────────────
   const renderContent = () => {
     if (tab === 'chats') {
       if (isMobile) {
@@ -178,25 +252,20 @@ export default function MainApp() {
             <ChatWindow conversation={activeChat} currentUser={currentUser} onBack={closeChat} />
           </div>
         );
-        return <div className="main-content full">{ChatList}</div>;
+        return <div className="main-content full">{ChatListPanel}</div>;
       }
       return (
         <div className="main-content split">
-          {ChatList}
+          {ChatListPanel}
           <div className="chat-area">
             <ChatWindow conversation={activeChat} currentUser={currentUser} onBack={closeChat} />
           </div>
         </div>
       );
     }
-    if (tab === 'status') return (
+    if (tab === 'feed') return (
       <div className="main-content full">
         <StatusFeed currentUser={currentUser} onOpenChat={openChat} />
-      </div>
-    );
-    if (tab === 'space') return (
-      <div className="main-content full">
-        <GoSpace currentUser={currentUser} onOpenChat={openChat} />
       </div>
     );
     if (tab === 'reels') return (
@@ -213,43 +282,141 @@ export default function MainApp() {
 
   return (
     <div className="app-shell">
-      {/* Desktop sidebar */}
+
+      {/* ── DESKTOP SIDEBAR ── */}
       {!isMobile && (
         <div className="desktop-sidebar">
           <div className="sidebar-logo">R</div>
-          {NAV.map(({ key, label, Icon }) => (
-            <button key={key} className={`sidebar-nav-btn ${tab === key ? 'active' : ''}`}
-              onClick={() => switchTab(key)} title={label}>
-              <Icon active={tab === key} />
-              <span>{label}</span>
-            </button>
-          ))}
+
+          {NAV.map(({ key, label, Icon }) => {
+            if (key === 'create') return (
+              <button key="create" className="sidebar-create-btn"
+                onClick={() => setShowCreate(true)} title="Create">
+                <Icon size={20} />
+              </button>
+            );
+            const isActive = tab === key;
+            return (
+              <button key={key}
+                className={`sidebar-nav-btn ${isActive ? 'active' : ''}`}
+                onClick={() => switchTab(key)} title={label}>
+                <Icon active={isActive} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+
           <div style={{ flex: 1 }} />
+
           <div className="sidebar-user" onClick={() => switchTab('profile')} title="Profile">
             {avatarSrc
               ? <img src={avatarSrc} alt="" className="sidebar-avatar" />
-              : <div className="sidebar-avatar-placeholder">{(currentUser?.displayName || 'U')[0].toUpperCase()}</div>}
+              : <div className="sidebar-avatar-placeholder">
+                  {(currentUser?.displayName || 'U')[0].toUpperCase()}
+                </div>}
           </div>
         </div>
       )}
 
-      {/* Main content */}
+      {/* ── MAIN CONTENT ── */}
       <div className={`app-main ${inChat ? 'in-chat' : ''}`}>
         {renderContent()}
       </div>
 
-      {/* Mobile bottom nav */}
+      {/* ── MOBILE BOTTOM NAV ── */}
       {isMobile && !inChat && (
         <nav className="mobile-bottom-nav">
-          {NAV.map(({ key, label, Icon }) => (
-            <button key={key} className={`mobile-nav-btn ${tab === key ? 'active' : ''}`}
-              onClick={() => switchTab(key)}>
-              <Icon active={tab === key} />
-              <span>{label}</span>
-            </button>
-          ))}
+          {NAV.map(({ key, label, Icon }) => {
+            if (key === 'create') return (
+              <button key="create" className="mobile-create-btn"
+                onClick={() => setShowCreate(true)}>
+                <div className="mobile-create-inner">
+                  <Icon size={22} />
+                </div>
+                <span>‌</span>
+              </button>
+            );
+            const isActive = tab === key;
+            return (
+              <button key={key}
+                className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
+                onClick={() => switchTab(key)}>
+                <div className="nav-icon-wrap">
+                  <Icon active={isActive} />
+                </div>
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </nav>
+      )}
+
+      {/* ── CREATE BOTTOM SHEET ── */}
+      {showCreate && (
+        <div style={cs.overlay} onClick={() => setShowCreate(false)}>
+          <div style={cs.sheet} onClick={e => e.stopPropagation()}>
+            <div style={cs.handle} />
+            <div style={cs.title}>Create</div>
+            {[
+              { emoji: '🖼️', label: 'Post',  sub: 'Share a photo or write something' },
+              { emoji: '⚡',  label: 'INTA',  sub: 'Original short video — max 10 seconds' },
+              { emoji: '🔗',  label: 'OUTA',  sub: 'Embed a TikTok / Instagram / YouTube link' },
+            ].map(({ emoji, label, sub }) => (
+              <button key={label} style={cs.option} onClick={() => setShowCreate(false)}>
+                <div style={cs.optEmoji}>{emoji}</div>
+                <div>
+                  <div style={cs.optLabel}>{label}</div>
+                  <div style={cs.optSub}>{sub}</div>
+                </div>
+              </button>
+            ))}
+            <button style={cs.cancel} onClick={() => setShowCreate(false)}>Cancel</button>
+          </div>
+        </div>
       )}
     </div>
   );
 }
+
+const cs = {
+  overlay: {
+    position: 'fixed', inset: 0,
+    background: 'rgba(0,0,0,0.75)',
+    zIndex: 200,
+    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+  },
+  sheet: {
+    width: '100%', maxWidth: 480,
+    background: '#13131A',
+    borderRadius: '20px 20px 0 0',
+    border: '1px solid rgba(255,255,255,0.08)',
+    padding: '12px 20px 36px',
+    display: 'flex', flexDirection: 'column', gap: 8,
+  },
+  handle: {
+    width: 36, height: 4,
+    background: 'rgba(255,255,255,0.12)',
+    borderRadius: 99,
+    margin: '0 auto 16px',
+  },
+  title: { fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 6 },
+  option: {
+    display: 'flex', alignItems: 'center', gap: 14,
+    background: '#1A1A26',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 14, padding: '14px 16px',
+    cursor: 'pointer', textAlign: 'left',
+    width: '100%', fontFamily: 'inherit',
+  },
+  optEmoji: { fontSize: 22, width: 32, textAlign: 'center' },
+  optLabel: { fontSize: 14, fontWeight: 600, color: '#fff' },
+  optSub:   { fontSize: 12, color: '#555', marginTop: 2 },
+  cancel: {
+    marginTop: 4,
+    background: 'none',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12, padding: '12px 0',
+    color: '#666', fontSize: 14,
+    cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+  },
+};
