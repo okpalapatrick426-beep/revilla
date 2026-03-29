@@ -2,69 +2,72 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../../services/api';
 import { getSocket } from '../../../services/socket';
 
-const MsgIcon  = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>;
-const AddIcon  = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>;
-const CheckIcon= () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>;
-const SearchIc = () => <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" style={{opacity:.4}}><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>;
+const MsgIcon = () => <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>;
+const AddIcon = () => <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>;
+const CheckIcon = () => <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>;
+const CloseIcon = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>;
+const SearchIcon = () => <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>;
 
-// Status config
-const STATUS = {
-  'in-app': { color: '#22c55e', label: 'In App',  dot: '#22c55e' },
-  'online':  { color: '#3b82f6', label: 'Online',  dot: '#3b82f6' },
-  'offline': { color: '#44445A', label: 'Offline', dot: '#44445A' },
-};
+const TABS = [
+  { key: 'inapp', label: '🟢 In App' },
+  { key: 'online', label: '🔵 Online' },
+  { key: 'offline', label: '⚫ Offline' },
+  { key: 'friends', label: '👥 Friends' },
+  { key: 'requests', label: '🔔 Requests' },
+];
 
-const AVATAR_COLORS = ['#BF5FFF','#3b82f6','#22c55e','#f59e0b','#ef4444','#ec4899','#06b6d4','#8b5cf6'];
-const getColor = (id='') => AVATAR_COLORS[id.charCodeAt(0) % AVATAR_COLORS.length];
+export default function GoSpace({ currentUser, onOpenChat }) {
+  const [tab, setTab] = useState('inapp');
+  const [allUsers, setAllUsers] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [onlineMap, setOnlineMap] = useState({});
+  const [friendMap, setFriendMap] = useState({}); // userId -> 'friends'|'pending'|'received'
+  const [search, setSearch] = useState('');
+  const [popup, setPopup] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [requestsBadge, setRequestsBadge] = useState(0);
 
-export default function GoSpace({ currentUser, onOpenChat, onlineUsers = {} }) {
-  const [tab,       setTab]       = useState('online');
-  const [allUsers,  setAllUsers]  = useState([]);
-  const [friends,   setFriends]   = useState([]);   // accepted friend user ids
-  const [requests,  setRequests]  = useState([]);   // incoming requests
-  const [friendMap, setFriendMap] = useState({});   // userId -> 'friends'|'pending'|'received'
-  const [socketMap, setSocketMap] = useState({});   // userId -> {inApp, lastSeen} — live from socket
-  const [search,    setSearch]    = useState('');
-  const [popup,     setPopup]     = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const BASE = process.env.REACT_APP_API_URL?.replace('/api','') || '';
+  const BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || '';
 
-  // ── LOAD DATA ──────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     try {
-      const [usersRes, friendsRes] = await Promise.all([
+      const [usersRes, friendsRes, requestsRes] = await Promise.all([
         api.get('/users/all'),
         api.get('/friends').catch(() => ({ data: [] })),
+        api.get('/friends/requests').catch(() => ({ data: [] })),
       ]);
+
       setAllUsers(usersRes.data || []);
 
-      const raw = friendsRes.data || [];
-      const fMap = {}, fList = [], rList = [];
-      raw.forEach(f => {
+      const fList = friendsRes.data || [];
+      const fMap = {};
+      fList.forEach(f => {
         if (f.status === 'accepted') {
-          const oid = f.userId === currentUser?.id ? f.friendId : f.userId;
-          fMap[oid] = 'friends';
-          fList.push(oid);
-        } else if (f.status === 'pending') {
-          if (f.userId === currentUser?.id) fMap[f.friendId] = 'pending';
-          else { fMap[f.userId] = 'received'; rList.push(f); }
+          // Mark both sides as friends
+          if (f.requesterId === currentUser?.id) fMap[f.receiverId] = 'friends';
+          else fMap[f.requesterId] = 'friends';
         }
       });
+
+      const reqList = requestsRes.data || [];
+      reqList.forEach(r => { fMap[r.requesterId] = 'received'; });
       setFriendMap(fMap);
-      setFriends(fList);
-      setRequests(rList);
+      setRequests(reqList);
+      setRequestsBadge(reqList.length);
     } catch (err) {
       console.error('GoSpace load error:', err);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }, [currentUser?.id]);
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 8000);
+    const t = setInterval(load, 15000);
     return () => clearInterval(t);
   }, [load]);
 
-  // ── SOCKET: accurate real-time online status ───────────────────────────────
+  // Real-time: online status + friend events
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -72,213 +75,227 @@ export default function GoSpace({ currentUser, onOpenChat, onlineUsers = {} }) {
     socket.on('onlineUsers', (list) => {
       const map = {};
       list.forEach(u => { map[u.userId] = { inApp: u.inApp, lastSeen: u.lastSeen }; });
-      setSocketMap(map);
+      setOnlineMap(map);
     });
+
     socket.on('userOnline', ({ userId, inApp }) => {
-      setSocketMap(prev => ({ ...prev, [userId]: { inApp, lastSeen: Date.now() } }));
+      setOnlineMap(prev => ({ ...prev, [userId]: { inApp, lastSeen: Date.now() } }));
     });
+
     socket.on('userOffline', ({ userId }) => {
-      setSocketMap(prev => {
-        const next = { ...prev };
-        delete next[userId];
-        return next;
-      });
+      setOnlineMap(prev => { const next = { ...prev }; delete next[userId]; return next; });
+    });
+
+    // Incoming friend request — update badge + map in real time
+    socket.on('friendRequest', ({ from }) => {
+      setFriendMap(prev => ({ ...prev, [from]: 'received' }));
+      setRequestsBadge(prev => prev + 1);
+      load(); // reload to get requester details
+    });
+
+    // Someone accepted our request
+    socket.on('friendAccepted', ({ from }) => {
+      setFriendMap(prev => ({ ...prev, [from]: 'friends' }));
     });
 
     return () => {
       socket.off('onlineUsers');
       socket.off('userOnline');
       socket.off('userOffline');
+      socket.off('friendRequest');
+      socket.off('friendAccepted');
     };
-  }, []);
+  }, [load]);
 
-  // ── STATUS LOGIC ──────────────────────────────────────────────────────────
-  // Priority: socket real-time > DB isOnline field
-  const getStatus = (user) => {
-    if (socketMap[user.id]) return socketMap[user.id].inApp ? 'in-app' : 'online';
-    if (onlineUsers[user.id]) return onlineUsers[user.id];
-    if (user.isOnline) return 'online';
-    return 'offline';
+  const getStatus = (userId) => {
+    if (!onlineMap[userId]) return 'offline';
+    if (onlineMap[userId].inApp) return 'inapp';
+    return 'online';
   };
 
-  // ── FILTER USERS BY TAB ───────────────────────────────────────────────────
-  const getTabUsers = () => {
-    let list = allUsers;
+  const filtered = allUsers.filter(u => {
+    if (u.id === currentUser?.id) return false;
     const q = search.toLowerCase();
-    if (q) list = list.filter(u =>
-      u.displayName?.toLowerCase().includes(q) || u.username?.toLowerCase().includes(q)
-    );
-    switch (tab) {
-      case 'online':   return list.filter(u => getStatus(u) === 'online' || getStatus(u) === 'in-app');
-      case 'offline':  return list.filter(u => getStatus(u) === 'offline');
-      case 'friends':  return list.filter(u => friendMap[u.id] === 'friends');
-      default:         return list;
-    }
-  };
-
-  const counts = {
-    online:   allUsers.filter(u => ['online','in-app'].includes(getStatus(u))).length,
-    offline:  allUsers.filter(u => getStatus(u) === 'offline').length,
-    friends:  allUsers.filter(u => friendMap[u.id] === 'friends').length,
-    requests: requests.length,
-  };
+    const matchSearch = !q || u.displayName?.toLowerCase().includes(q) || u.username?.toLowerCase().includes(q);
+    if (!matchSearch) return false;
+    const status = getStatus(u.id);
+    if (tab === 'inapp') return status === 'inapp';
+    if (tab === 'online') return status === 'online';
+    if (tab === 'offline') return status === 'offline';
+    if (tab === 'friends') return friendMap[u.id] === 'friends';
+    return false;
+  });
 
   const sendRequest = async (userId) => {
+    setFriendMap(prev => ({ ...prev, [userId]: 'pending' })); // optimistic
     try {
-      await api.post(`/friends/request/${userId}`);
-      setFriendMap(prev => ({ ...prev, [userId]: 'pending' }));
-    } catch (err) { console.error(err); }
+      await api.post('/friends/request', { receiverId: userId });
+      const socket = getSocket();
+      socket?.emit('friendRequest', { to: userId, from: currentUser?.id });
+    } catch (err) {
+      console.error(err);
+      setFriendMap(prev => { const n = { ...prev }; delete n[userId]; return n; }); // rollback
+    }
   };
 
   const acceptRequest = async (requesterId) => {
     try {
-      await api.put(`/friends/accept/${requesterId}`);
+      await api.post('/friends/accept', { requesterId });
       setFriendMap(prev => ({ ...prev, [requesterId]: 'friends' }));
-      setRequests(prev => prev.filter(r => r.userId !== requesterId));
-      load();
+      setRequests(prev => prev.filter(r => r.requesterId !== requesterId));
+      setRequestsBadge(prev => Math.max(0, prev - 1));
+      const socket = getSocket();
+      socket?.emit('friendAccepted', { to: requesterId, from: currentUser?.id });
     } catch (err) { console.error(err); }
   };
 
-  const avSrc = (u) => u?.avatar ? (u.avatar.startsWith('http') ? u.avatar : `${BASE}${u.avatar}`) : null;
-
-  const Avatar = ({ user, size = 46 }) => {
-    const src = avSrc(user);
-    const status = getStatus(user);
-    return (
-      <div style={{ position:'relative', flexShrink:0 }}>
-        {src
-          ? <img src={src} alt="" style={{ width:size,height:size,borderRadius:'50%',objectFit:'cover' }}/>
-          : <div style={{ width:size,height:size,borderRadius:'50%',background:getColor(user.id||''),
-              color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
-              fontWeight:700,fontSize:size*0.38 }}>
-              {(user.displayName||user.username||'?')[0].toUpperCase()}
-            </div>}
-        <span style={{
-          position:'absolute',bottom:1,right:1,
-          width: size>40?11:9, height: size>40?11:9,
-          borderRadius:'50%', background: STATUS[status]?.dot||'#44445A',
-          border: `2px solid #0A0A0F`,
-        }}/>
-      </div>
-    );
+  const rejectRequest = async (requesterId) => {
+    try {
+      await api.post('/friends/reject', { userId: requesterId });
+      setFriendMap(prev => { const n = { ...prev }; delete n[requesterId]; return n; });
+      setRequests(prev => prev.filter(r => r.requesterId !== requesterId));
+      setRequestsBadge(prev => Math.max(0, prev - 1));
+    } catch (err) { console.error(err); }
   };
 
-  const tabList = getTabUsers();
+  const avatarSrc = (u) => {
+    if (!u?.avatar) return null;
+    return u.avatar.startsWith('http') ? u.avatar : `${BASE}${u.avatar}`;
+  };
+
+  const statusColor = { inapp: '#22c55e', online: '#3b82f6', offline: '#6b7280' };
+  const statusLabel = { inapp: 'In App', online: 'Online', offline: 'Offline' };
+
+  const counts = {
+    inapp: allUsers.filter(u => u.id !== currentUser?.id && getStatus(u.id) === 'inapp').length,
+    online: allUsers.filter(u => u.id !== currentUser?.id && getStatus(u.id) === 'online').length,
+    offline: allUsers.filter(u => u.id !== currentUser?.id && getStatus(u.id) === 'offline').length,
+    friends: allUsers.filter(u => friendMap[u.id] === 'friends').length,
+    requests: requestsBadge,
+  };
 
   return (
-    <div style={gs.wrap}>
+    <div className="gospace">
+      <div className="gospace-header">
+        <h2>GoSpace</h2>
+        <p>Everyone on Revilla — tap anyone to chat</p>
+      </div>
 
-      {/* Header */}
-      <div style={gs.header}>
-        <div style={gs.searchWrap}>
-          <SearchIc/>
-          <input style={gs.searchInput} placeholder="Search anyone on Revilla..."
-            value={search} onChange={e => setSearch(e.target.value)}/>
-        </div>
+      <div className="gospace-search">
+        <SearchIcon />
+        <input
+          placeholder="Search anyone on Revilla..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Tabs */}
-      <div style={gs.tabs}>
-        {[
-          { key:'online',   label:'Online',   count: counts.online   },
-          { key:'offline',  label:'Offline',  count: counts.offline  },
-          { key:'friends',  label:'Friends',  count: counts.friends  },
-          { key:'requests', label:'Requests', count: counts.requests },
-        ].map(t => (
-          <button key={t.key} style={{
-            ...gs.tab,
-            ...(tab === t.key ? gs.tabActive : {}),
-          }} onClick={() => setTab(t.key)}>
+      <div className="gospace-tabs">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            className={`gs-tab ${tab === t.key ? 'active' : ''}`}
+            onClick={() => { setTab(t.key); if (t.key === 'requests') setRequestsBadge(0); }}
+          >
             {t.label}
-            {t.count > 0 && (
-              <span style={{
-                ...gs.tabCount,
-                background: tab===t.key ? '#BF5FFF' : 'rgba(255,255,255,0.08)',
-                color: tab===t.key ? '#fff' : '#8888AA',
-              }}>{t.count}</span>
+            {counts[t.key] > 0 && (
+              <span className={`gs-count ${t.key === 'requests' ? 'gs-count-urgent' : ''}`}>
+                {counts[t.key]}
+              </span>
             )}
           </button>
         ))}
       </div>
 
-      {/* List */}
-      <div style={gs.list}>
-        {loading && <p style={gs.empty}>Loading...</p>}
+      {/* Content */}
+      <div className="gospace-list">
+        {loading && <p className="gs-empty">Loading...</p>}
 
         {/* Requests tab */}
         {tab === 'requests' && !loading && (
           requests.length === 0
-            ? <p style={gs.empty}>No pending requests</p>
+            ? <p className="gs-empty">No pending friend requests</p>
             : requests.map(req => {
-                const u = req.User || req.Requester || { id: req.userId, username: 'Unknown' };
-                return (
-                  <div key={req.id || req.userId} style={gs.row}>
-                    <Avatar user={u} size={46}/>
-                    <div style={gs.info}>
-                      <div style={gs.name}>{u.displayName||u.username||'Unknown'}</div>
-                      <div style={{fontSize:12,color:'#8888AA'}}>wants to connect</div>
-                    </div>
-                    <div style={{display:'flex',gap:6}}>
-                      <button style={gs.btnAccept} onClick={()=>acceptRequest(u.id||req.userId)}>
-                        <CheckIcon/> Accept
-                      </button>
-                    </div>
+              const requester = req.Requester || {};
+              return (
+                <div key={req.id || req.requesterId} className="gs-user-row">
+                  <div className="gs-avatar-wrap">
+                    {avatarSrc(requester)
+                      ? <img src={avatarSrc(requester)} alt="" className="gs-avatar" />
+                      : <div className="gs-avatar-placeholder">{(requester.displayName || '?')[0].toUpperCase()}</div>}
                   </div>
-                );
-              })
+                  <div className="gs-info">
+                    <strong>{requester.displayName || requester.username || 'Unknown'}</strong>
+                    <span>wants to be your friend</span>
+                  </div>
+                  <div className="gs-actions">
+                    <button className="gs-accept-btn" onClick={() => acceptRequest(req.requesterId)}>
+                      <CheckIcon /> Accept
+                    </button>
+                    <button className="gs-reject-btn" onClick={() => rejectRequest(req.requesterId)}>
+                      <CloseIcon />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
         )}
 
         {/* Users list */}
-        {tab !== 'requests' && !loading && tabList.length === 0 && (
-          <div style={gs.emptyState}>
-            <div style={{fontSize:32,marginBottom:8}}>
-              {tab==='online'?'👀':tab==='offline'?'😴':tab==='friends'?'👥':'🔔'}
-            </div>
-            <p style={{color:'#F0F0F5',fontSize:14,fontWeight:500}}>
-              {tab==='online'   ? 'No one is online right now'
-               :tab==='offline' ? 'No offline users'
-               :tab==='friends' ? 'No friends yet'
-               :'No requests'}
-            </p>
-            <p style={{color:'#44445A',fontSize:12,marginTop:4}}>
-              {tab==='friends' ? 'Find people in the Online tab' : ''}
-            </p>
-          </div>
+        {tab !== 'requests' && !loading && filtered.length === 0 && (
+          <p className="gs-empty">
+            {tab === 'inapp' ? 'No one is in the app right now'
+              : tab === 'online' ? 'No one else is online'
+              : tab === 'friends' ? 'No friends yet — add people from other tabs!'
+              : 'No users found'}
+          </p>
         )}
 
-        {tab !== 'requests' && tabList.map(user => {
-          const status  = getStatus(user);
+        {tab !== 'requests' && filtered.map(user => {
+          const status = getStatus(user.id);
           const fStatus = friendMap[user.id];
-          const cfg     = STATUS[status] || STATUS.offline;
 
           return (
-            <div key={user.id} style={gs.row} onClick={() => setPopup(user)}>
-              <Avatar user={user} size={46}/>
-              <div style={gs.info}>
-                <div style={gs.name}>{user.displayName||user.username}</div>
-                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                  <span style={{...gs.statusDot,background:cfg.dot}}/>
-                  <span style={{fontSize:12,color:cfg.color}}>{cfg.label}</span>
-                  <span style={{fontSize:11,color:'#44445A'}}>· @{user.username}</span>
-                </div>
+            <div key={user.id} className="gs-user-row" onClick={() => setPopup(user)}>
+              <div className="gs-avatar-wrap">
+                {avatarSrc(user)
+                  ? <img src={avatarSrc(user)} alt="" className="gs-avatar" />
+                  : <div className="gs-avatar-placeholder">{(user.displayName || user.username || '?')[0].toUpperCase()}</div>}
+                <span className="gs-status-dot" style={{ background: statusColor[status] }} />
               </div>
-              <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                <button style={gs.btnMsg}
-                  onClick={e=>{e.stopPropagation();onOpenChat&&onOpenChat(user);}}>
-                  <MsgIcon/>
+              <div className="gs-info">
+                <strong>{user.displayName || user.username}</strong>
+                <span style={{ color: statusColor[status] }}>
+                  {statusLabel[status]} · @{user.username}
+                </span>
+              </div>
+              <div className="gs-actions">
+                <button
+                  className="gs-msg-btn"
+                  onClick={e => { e.stopPropagation(); onOpenChat && onOpenChat(user); }}
+                  title="Message"
+                >
+                  <MsgIcon />
                 </button>
                 {!fStatus && (
-                  <button style={gs.btnAdd}
-                    onClick={e=>{e.stopPropagation();sendRequest(user.id);}}>
-                    <AddIcon/>
+                  <button
+                    className="gs-add-btn"
+                    onClick={e => { e.stopPropagation(); sendRequest(user.id); }}
+                    title="Add friend"
+                  >
+                    <AddIcon />
                   </button>
                 )}
-                {fStatus==='pending'  && <span style={gs.badge}>Sent</span>}
-                {fStatus==='friends'  && <span style={{...gs.badge,...gs.badgeFriend}}>✓</span>}
-                {fStatus==='received' && (
-                  <button style={gs.btnAccept}
-                    onClick={e=>{e.stopPropagation();acceptRequest(user.id);}}>
-                    <CheckIcon/>
+                {fStatus === 'pending' && <span className="gs-badge pending">Sent</span>}
+                {fStatus === 'friends' && <span className="gs-badge friends">Friends</span>}
+                {fStatus === 'received' && (
+                  <button
+                    className="gs-accept-btn sm"
+                    onClick={e => { e.stopPropagation(); acceptRequest(user.id); }}
+                    title="Accept request"
+                  >
+                    <CheckIcon />
                   </button>
                 )}
               </div>
@@ -287,68 +304,39 @@ export default function GoSpace({ currentUser, onOpenChat, onlineUsers = {} }) {
         })}
       </div>
 
-      {/* ── POPUP ── */}
+      {/* User popup */}
       {popup && (
-        <div style={gs.overlay} onClick={()=>setPopup(null)}>
-          <div style={gs.popup} onClick={e=>e.stopPropagation()}>
-            <div style={gs.popupHandle}/>
-            <Avatar user={popup} size={72}/>
-            <div style={{fontSize:18,fontWeight:700,color:'#F0F0F5',marginTop:10}}>{popup.displayName||popup.username}</div>
-            <div style={{fontSize:13,color:'#8888AA'}}>@{popup.username}</div>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
-              <span style={{...gs.statusDot,background:STATUS[getStatus(popup)]?.dot||'#44445A'}}/>
-              <span style={{fontSize:12,color:STATUS[getStatus(popup)]?.color||'#44445A'}}>
-                {STATUS[getStatus(popup)]?.label||'Offline'}
-              </span>
+        <div className="gs-popup-overlay" onClick={() => setPopup(null)}>
+          <div className="gs-popup" onClick={e => e.stopPropagation()}>
+            <button className="gs-popup-close" onClick={() => setPopup(null)}><CloseIcon /></button>
+            <div className="gs-popup-avatar">
+              {avatarSrc(popup)
+                ? <img src={avatarSrc(popup)} alt="" />
+                : <div className="gs-popup-placeholder">{(popup.displayName || '?')[0].toUpperCase()}</div>}
+              <span className="gs-status-dot lg" style={{ background: statusColor[getStatus(popup.id)] }} />
             </div>
-            <div style={{display:'flex',gap:10,width:'100%',marginTop:16}}>
-              <button style={gs.popupBtnPrimary}
-                onClick={()=>{setPopup(null);onOpenChat&&onOpenChat(popup);}}>
-                Message
+            <h3>{popup.displayName || popup.username}</h3>
+            <p>@{popup.username} · {statusLabel[getStatus(popup.id)]}</p>
+            <div className="gs-popup-actions">
+              <button className="gs-popup-msg" onClick={() => { setPopup(null); onOpenChat && onOpenChat(popup); }}>
+                <MsgIcon /> Message
               </button>
               {!friendMap[popup.id] && (
-                <button style={gs.popupBtnSecondary}
-                  onClick={()=>{sendRequest(popup.id);setPopup(null);}}>
-                  Add Friend
+                <button className="gs-popup-add" onClick={() => { sendRequest(popup.id); setPopup(null); }}>
+                  <AddIcon /> Add Friend
                 </button>
               )}
-              {friendMap[popup.id]==='friends'  && <span style={{...gs.badge,...gs.badgeFriend,padding:'10px 16px',borderRadius:12}}>✓ Friends</span>}
-              {friendMap[popup.id]==='pending'   && <span style={{...gs.badge,padding:'10px 16px',borderRadius:12}}>Request Sent</span>}
+              {friendMap[popup.id] === 'received' && (
+                <button className="gs-popup-add" onClick={() => { acceptRequest(popup.id); setPopup(null); }}>
+                  <CheckIcon /> Accept Request
+                </button>
+              )}
+              {friendMap[popup.id] === 'friends' && <span className="gs-badge friends lg">✓ Friends</span>}
+              {friendMap[popup.id] === 'pending' && <span className="gs-badge pending lg">Request Sent</span>}
             </div>
-            <button style={gs.popupClose} onClick={()=>setPopup(null)}>Cancel</button>
           </div>
         </div>
       )}
     </div>
   );
 }
-
-// ── STYLES ────────────────────────────────────────────────────────────────────
-const gs = {
-  wrap:    { display:'flex',flexDirection:'column',height:'100%',background:'#0A0A0F',overflow:'hidden' },
-  header:  { padding:'12px 14px 8px',borderBottom:'1px solid rgba(255,255,255,0.07)' },
-  searchWrap:{ display:'flex',alignItems:'center',gap:8,background:'#13131A',border:'1px solid rgba(255,255,255,0.07)',borderRadius:12,padding:'9px 12px' },
-  searchInput:{ flex:1,background:'none',border:'none',color:'#F0F0F5',fontSize:14,outline:'none',fontFamily:'inherit' },
-  tabs:    { display:'flex',borderBottom:'1px solid rgba(255,255,255,0.07)',padding:'0 14px',gap:0,flexShrink:0 },
-  tab:     { flex:1,padding:'10px 4px',background:'none',border:'none',color:'#44445A',fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:5,borderBottom:'2px solid transparent',transition:'color .15s',whiteSpace:'nowrap' },
-  tabActive:{ color:'#BF5FFF',borderBottomColor:'#BF5FFF' },
-  tabCount:{ borderRadius:20,padding:'1px 6px',fontSize:10,fontWeight:700 },
-  list:    { flex:1,overflowY:'auto',paddingBottom:'4rem' },
-  row:     { display:'flex',alignItems:'center',gap:12,padding:'10px 14px',cursor:'pointer',transition:'background .1s',borderBottom:'1px solid rgba(255,255,255,0.03)' },
-  info:    { flex:1,minWidth:0 },
-  name:    { fontSize:14,fontWeight:600,color:'#F0F0F5',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' },
-  statusDot:{ width:7,height:7,borderRadius:'50%',flexShrink:0,display:'inline-block' },
-  btnMsg:  { background:'rgba(191,95,255,0.12)',border:'1px solid rgba(191,95,255,0.3)',color:'#BF5FFF',borderRadius:8,padding:'6px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:12,fontWeight:600 },
-  btnAdd:  { background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#F0F0F5',borderRadius:8,padding:'6px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:12 },
-  btnAccept:{ background:'#22c55e',border:'none',color:'#fff',borderRadius:8,padding:'6px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:12,fontWeight:600 },
-  badge:   { fontSize:11,color:'#44445A',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:20,padding:'3px 8px' },
-  badgeFriend:{ color:'#22c55e',background:'rgba(34,197,94,0.1)',borderColor:'rgba(34,197,94,0.3)' },
-  empty:   { textAlign:'center',padding:'48px 16px',color:'#44445A',fontSize:13 },
-  emptyState:{ textAlign:'center',padding:'48px 20px' },
-  overlay: { position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center' },
-  popup:   { width:'100%',maxWidth:480,background:'#13131A',borderRadius:'20px 20px 0 0',border:'1px solid rgba(255,255,255,0.08)',padding:'14px 20px 36px',display:'flex',flexDirection:'column',alignItems:'center',gap:4 },
-  popupHandle:{ width:36,height:4,background:'rgba(255,255,255,0.12)',borderRadius:99,marginBottom:12 },
-  popupBtnPrimary:{ flex:1,padding:'12px 0',background:'#BF5FFF',color:'#fff',border:'none',borderRadius:12,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit' },
-  popupBtnSecondary:{ flex:1,padding:'12px 0',background:'#1A1A26',color:'#F0F0F5',border:'1px solid rgba(255,255,255,0.08)',borderRadius:12,fontSize:14,cursor:'pointer',fontFamily:'inherit' },
-  popupClose:{ marginTop:8,background:'none',border:'none',color:'#44445A',cursor:'pointer',fontSize:13,fontFamily:'inherit' },
-};
